@@ -30,19 +30,27 @@ class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     description = db.Column(db.Text)
-    chapters = db.relationship('Chapter', back_populates='subject', lazy=True)
+    # Cascade deletes and orphan removal for chapters
+    chapters = db.relationship(
+        'Chapter',
+        back_populates='subject',
+        lazy=True,
+        cascade='all, delete-orphan'
+    )
 
-# Chapter model
+
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
     num_of_ques = db.Column(db.Integer)
-    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    # Foreign key with ondelete='CASCADE' for database-level integrity
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id', ondelete='CASCADE'), nullable=False)
     quizzes = db.relationship('Quiz', back_populates='chapter', lazy=True)
 
+    # Back-populated relationship with Subject
     subject = db.relationship('Subject', back_populates='chapters')
-# Quiz model
+
 class Quiz(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)

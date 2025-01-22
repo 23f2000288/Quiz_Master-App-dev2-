@@ -62,16 +62,7 @@ class RegisterUser(Resource):
             return {"message": f"Invalid data: {str(e)}"}, 400
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 400
-
-
-
-# Parsers for Subject, Chapter, and Quiz creation
-
-
-
-
-
-
+# Subject Parser for validating input for creating/updating subjects
 subject_parser = reqparse.RequestParser()
 subject_parser.add_argument('name', type=str, required=True, help='Subject name is required')
 subject_parser.add_argument('description', type=str, required=True, help='Subject description is required')
@@ -81,6 +72,7 @@ subject_fields = {
     'name': fields.String,
     'description': fields.String
 }
+
 # Subject CRUD API
 class SubjectResource(Resource):
     
@@ -131,14 +123,14 @@ class SubjectResource(Resource):
         except Exception as e:
             return {"message": f"Failed to update subject: {str(e)}"}, 500
 
+# Chapter Parser for validating input for creating/updating chapters
 chapter_parser = reqparse.RequestParser()
 chapter_parser.add_argument('name', type=str, required=True, help='Chapter name is required')
 chapter_parser.add_argument('description', type=str, required=True, help='Chapter description is required')
 chapter_parser.add_argument('num_of_ques', type=int, required=True, help='Number of questions is required')
 chapter_parser.add_argument('subject_id', type=int, required=True, help='Subject ID is required')
-# Marshalling fields
 
-
+# Marshalling fields for Chapter
 chapter_fields = {
     'id': fields.Integer,
     'name': fields.String,
@@ -146,6 +138,7 @@ chapter_fields = {
     'subject_id': fields.Integer,
     'num_of_ques': fields.Integer
 }
+
 # Chapter CRUD API
 class ChapterResource(Resource):
     @auth_required('token')
@@ -155,7 +148,10 @@ class ChapterResource(Resource):
         """Fetch all chapters or filter by subject ID."""
         subject_id = request.args.get('subject_id', type=int)
         try:
-            chapters = Chapter.query.filter_by(subject_id=subject_id).all() if subject_id else Chapter.query.all()
+            if subject_id:
+                chapters = Chapter.query.filter_by(subject_id=subject_id).all()
+            else:
+                chapters = Chapter.query.all()
             return chapters
         except Exception as e:
             return {"message": f"Failed to fetch chapters: {str(e)}"}, 500
@@ -166,7 +162,8 @@ class ChapterResource(Resource):
         """Create a new chapter."""
         args = chapter_parser.parse_args()
         try:
-            # Ensure subject_id is included in the request body
+            # Ensure subject_id is valid
+            subject = Subject.query.get_or_404(args['subject_id'])
             chapter = Chapter(
                 name=args['name'],
                 description=args['description'],

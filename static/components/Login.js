@@ -1,7 +1,8 @@
 export default{
     template:`
-    <section class="vh-100" style="background: 
-    linear-gradient(to bottom, #001f3f, #000000);">
+    <section 
+  class="vh-100" 
+  style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); height: 100vh;">
   <div class="container py-5 h-100">
     <div class="row d-flex justify-content-center align-items-center h-100">
       <div class="col col-xl-13">
@@ -22,7 +23,7 @@ export default{
                     <span class="h1 fw-bold mb-0">Welcome to Quiz Master</span>
                   </div>
 
-                  <h5 class="fw-normal mb-3 pb-3" style="letter-spacing: 1px;">Sign into your account</h5>
+                  <h5 class="fw-normal mb-3 pb-3" style="letter-spacing: 1px;">Log into your account</h5>
 
                   <div data-mdb-input-init class="form-outline mb-4">
                     <input type="email" id="form2Example17" class="form-control form-control-lg"
@@ -43,8 +44,7 @@ export default{
 
                   <p class="mb-5 pb-lg-2" style="color:rgb(17, 16, 16);">Don't have account? <router-link to="/register"
                           style="color: #393f81;">Register here</router-link></p>
-                      <a href="#" class="small text-muted">Terms of use.</a>
-                      <a href="#" class="small text-muted">Privacy policy</a>
+                      
                   
                   
                 </form>
@@ -56,6 +56,8 @@ export default{
       </div>
     </div>
   </div>
+
+
 </section>
     `,
     data(){
