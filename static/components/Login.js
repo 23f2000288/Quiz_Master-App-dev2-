@@ -41,14 +41,12 @@ export default{
                     type="button" @click='login'>Login</button>
                   </div>
 
+                  <p class="mb-5 pb-lg-2" style="color:rgb(17, 16, 16);">Don't have account? <router-link to="/register"
+                          style="color: #393f81;">Register here</router-link></p>
+                      <a href="#" class="small text-muted">Terms of use.</a>
+                      <a href="#" class="small text-muted">Privacy policy</a>
                   
-                  <p class="mb-5 pb-lg-2" style="color: #393f81;"><router-link
-            class="nav-link active"
-            style="color: black; font-weight: bold; margin-right: 15px;"
-            to="/register"
-          ><p>Don't have account register here </p>Register</router-link></p>
-                  <a href="#!" class="small text-muted">Terms of use.</a>
-                  <a href="#!" class="small text-muted">Privacy policy</a>
+                  
                 </form>
 
               </div>

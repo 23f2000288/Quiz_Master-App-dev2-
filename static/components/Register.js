@@ -56,8 +56,8 @@ export default {
                         </button>
                       </div>
 
-                      <p class="mb-5 pb-lg-2" style="color: #393f81;">Already have an account? <a href="/login"
-                          style="color: #393f81;">Sign in here</a></p>
+                      <p class="mb-5 pb-lg-2" style="color:rgb(17, 16, 16);">Already have an account? <router-link to="/login"
+                          style="color: #393f81;">Sign in here</router-link></p>
                       <a href="#" class="small text-muted">Terms of use.</a>
                       <a href="#" class="small text-muted">Privacy policy</a>
                     </form>

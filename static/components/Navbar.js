@@ -3,7 +3,11 @@ export default {
   template: `
     <nav class="navbar navbar-expand-lg" style="background-color: black;">
   <div class="container-fluid">
-    <a class="navbar-brand" href="#" style="color: white; font-weight: bold;">Home</a>
+    <router-link
+            class="nav-link active"
+            style="color: white; font-weight: bold; margin-right: 15px;"
+            to="/"
+          >Home</router-link>
     <button
       class="navbar-toggler"
       type="button"
@@ -17,13 +21,12 @@ export default {
     </button>
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item" >
-          <a
-            class="nav-link active"
-            aria-current="page"
-            href="#"
+        <li class="nav-item" v-if="is_login" >
+          <router-link
+            class="nav-link active "
             style="color: white; font-weight: bold; margin-right: 15px;"
-          >Quiz</a>
+            to="/quiz"
+          >Quiz</router-link>
         </li>
         <li class="nav-item" >
           <router-link
@@ -32,7 +35,7 @@ export default {
             to="/register"
           >Register</router-link>
         </li>
-        <li class="nav-item">
+        <li class="nav-item" v-if="is_login">
           <a
             class="nav-link"
             href="#"
@@ -48,7 +51,7 @@ export default {
           >Logout</a>
         </li>
       </ul>
-      <form class="d-flex ms-auto" role="search" v-if="role === 'admin'">
+      <form class="d-flex ms-auto" role="search"  v-if="is_login">
         <input
           class="form-control me-2"
           type="search"

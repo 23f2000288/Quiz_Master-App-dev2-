@@ -2,8 +2,7 @@ from flask_restful import Resource, Api, reqparse, marshal_with, fields, request
 from .models import Subject, Chapter, Quiz, Question, User, db, Role
 from flask import jsonify
 from datetime import datetime
-from flask_security import hash_password, auth_required, roles_required
-from werkzeug.security import generate_password_hash
+from flask_security import roles_required, auth_required, hash_password
 from uuid import uuid4
 
 api = Api(prefix='/api')
@@ -62,142 +61,220 @@ class RegisterUser(Resource):
         except ValueError as e:
             return {"message": f"Invalid data: {str(e)}"}, 400
         except Exception as e:
-            return {"message": f"An error occurred: {str(e)}"}, 500
+            return {"message": f"An error occurred: {str(e)}"}, 400
 
-# Parser for creating subjects
+
+
+# Parsers for Subject, Chapter, and Quiz creation
+
+
+
+
+
+
 subject_parser = reqparse.RequestParser()
 subject_parser.add_argument('name', type=str, required=True, help='Subject name is required')
 subject_parser.add_argument('description', type=str, required=True, help='Subject description is required')
-# Marshalling for subjects
 
 subject_fields = {
     'id': fields.Integer,
     'name': fields.String,
     'description': fields.String
 }
+# Subject CRUD API
 class SubjectResource(Resource):
+    
     @marshal_with(subject_fields)
-    @auth_required("token")
+    @auth_required('token')
+    @roles_required('admin')
     def get(self):
+        """Fetch all subjects."""
         subjects = Subject.query.all()
         return subjects
 
-    #@auth_required("token")
-    @roles_required("admin")
+    @auth_required('token')
+    @roles_required('admin')
     def post(self):
+        """Create a new subject."""
         args = subject_parser.parse_args()
-        subject = Subject(**args)
-        db.session.add(subject)
-        db.session.commit()
-        return {'message': 'Subject created successfully'}, 201
+        try:
+            subject = Subject(name=args['name'], description=args['description'])
+            db.session.add(subject)
+            db.session.commit()
+            return {"message": "Subject created successfully"}, 201
+        except Exception as e:
+            return {"message": f"Failed to create subject: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def delete(self, subject_id):
-        subject = Subject.query.get_or_404(subject_id)
-        db.session.delete(subject)
-        db.session.commit()
-        return {'message': 'Subject deleted successfully'}, 200
+        """Delete a subject."""
+        try:
+            subject = Subject.query.get_or_404(subject_id)
+            db.session.delete(subject)
+            db.session.commit()
+            return {"message": "Subject deleted successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to delete subject: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def put(self, subject_id):
+        """Update a subject."""
         args = subject_parser.parse_args()
-        subject = Subject.query.get_or_404(subject_id)
-        subject.name = args['name']
-        subject.description = args['description']
-        db.session.commit()
-        return {'message': 'Subject updated successfully'}, 200
-# Parser for creating chapters
+        try:
+            subject = Subject.query.get_or_404(subject_id)
+            subject.name = args['name']
+            subject.description = args['description']
+            db.session.commit()
+            return {"message": "Subject updated successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to update subject: {str(e)}"}, 500
+
 chapter_parser = reqparse.RequestParser()
 chapter_parser.add_argument('name', type=str, required=True, help='Chapter name is required')
 chapter_parser.add_argument('description', type=str, required=True, help='Chapter description is required')
+chapter_parser.add_argument('num_of_ques', type=int, required=True, help='Number of questions is required')
 chapter_parser.add_argument('subject_id', type=int, required=True, help='Subject ID is required')
-chapter_parser.add_argument('num_of_ques', type=int,required=True, help='no of ques is required')
+# Marshalling fields
 
-#Marshaling for chapters
+
 chapter_fields = {
     'id': fields.Integer,
     'name': fields.String,
     'description': fields.String,
     'subject_id': fields.Integer,
-    'num_of_ques': fields.Integer,
+    'num_of_ques': fields.Integer
 }
+# Chapter CRUD API
 class ChapterResource(Resource):
+    @auth_required('token')
+    @roles_required('admin')
     @marshal_with(chapter_fields)
     def get(self):
+        """Fetch all chapters or filter by subject ID."""
         subject_id = request.args.get('subject_id', type=int)
-        chapters = Chapter.query.filter_by(subject_id=subject_id).all() if subject_id else Chapter.query.all()
-        return chapters
+        try:
+            chapters = Chapter.query.filter_by(subject_id=subject_id).all() if subject_id else Chapter.query.all()
+            return chapters
+        except Exception as e:
+            return {"message": f"Failed to fetch chapters: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def post(self):
+        """Create a new chapter."""
         args = chapter_parser.parse_args()
-        chapter = Chapter(**args)
-        db.session.add(chapter)
-        db.session.commit()
-        return {'message': 'Chapter created successfully'}, 201
+        try:
+            # Ensure subject_id is included in the request body
+            chapter = Chapter(
+                name=args['name'],
+                description=args['description'],
+                num_of_ques=args['num_of_ques'],
+                subject_id=args['subject_id']
+            )
+            db.session.add(chapter)
+            db.session.commit()
+            return {"message": "Chapter created successfully"}, 201
+        except Exception as e:
+            return {"message": f"Failed to create chapter: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def delete(self, chapter_id):
-        chapter = Chapter.query.get_or_404(chapter_id)
-        db.session.delete(chapter)
-        db.session.commit()
-        return {'message': 'Chapter deleted successfully'}, 200
+        """Delete a chapter."""
+        try:
+            chapter = Chapter.query.get_or_404(chapter_id)
+            db.session.delete(chapter)
+            db.session.commit()
+            return {"message": "Chapter deleted successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to delete chapter: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def put(self, chapter_id):
+        """Update a chapter."""
         args = chapter_parser.parse_args()
-        chapter = Chapter.query.get_or_404(chapter_id)
-        chapter.name = args['name']
-        chapter.description = args['description']
-        chapter.num_of_ques = args['num_of_ques']
-        db.session.commit()
-        return {'message': 'Chapter updated successfully'}, 200
+        try:
+            chapter = Chapter.query.get_or_404(chapter_id)
+            chapter.name = args['name']
+            chapter.description = args['description']
+            chapter.num_of_ques = args['num_of_ques']
+            db.session.commit()
+            return {"message": "Chapter updated successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to update chapter: {str(e)}"}, 500
 
-"""class ChapterResource(Resource):
-    @marshal_with(chapter_fields)
-    def get(self):
-        subject_id = request.args.get('subject_id', type=int)
-        chapters = Chapter.query.filter_by(subject_id=subject_id).all() if subject_id else Chapter.query.all()
-        return chapters
-
-    def post(self):
-        args = chapter_parser.parse_args()
-        chapter = Chapter(**args)
-        db.session.add(chapter)
-        db.session.commit()
-        return {'message': 'Chapter created successfully'}, 201
-"""
-# Parser for creating questions
-question_parser = reqparse.RequestParser()
-question_parser.add_argument('quiz_id', type=int, required=True, help='Quiz ID is required')
-question_parser.add_argument('question_statement', type=str, required=True, help='Question statement is required')
-question_parser.add_argument('option1', type=str, required=True, help='Option 1 is required')
-question_parser.add_argument('option2', type=str, required=True, help='Option 2 is required')
-question_parser.add_argument('option3', type=str)
-question_parser.add_argument('option4', type=str)
-question_parser.add_argument('correct_option', type=str, required=True, help='Correct option is required')
-
-# Fields for marshalling questions
-question_fields = {
+quiz_parser = reqparse.RequestParser()
+quiz_parser.add_argument('name', type=str, required=True, help='Quiz name is required')
+quiz_parser.add_argument('time_duration', type=str, required=True, help='Quiz time duration is required (HH:MM)')
+quiz_parser.add_argument('remarks', type=str)
+quiz_fields = {
     'id': fields.Integer,
-    'quiz_id': fields.Integer,
-    'question_statement': fields.String,
-    'option1': fields.String,
-    'option2': fields.String,
-    'option3': fields.String,
-    'option4': fields.String,
-    'correct_option': fields.String
+    'name': fields.String,
+    'chapter_id': fields.Integer,
+    'time_duration': fields.String,
+    'remarks': fields.String
 }
-class QuestionResource(Resource):
-    @marshal_with(question_fields)
+# Quiz CRUD API
+class QuizResource(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    @marshal_with(quiz_fields)
     def get(self):
-        questions = Question.query.all()
-        return questions
+        """Fetch all quizzes or filter by chapter ID."""
+        chapter_id = request.args.get('chapter_id', type=int)
+        try:
+            quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all() if chapter_id else Quiz.query.all()
+            return quizzes
+        except Exception as e:
+            return {"message": f"Failed to fetch quizzes: {str(e)}"}, 500
 
+    @auth_required('token')
+    @roles_required('admin')
     def post(self):
-        args = question_parser.parse_args()
-        question = Question(**args)
-        db.session.add(question)
-        db.session.commit()
-        return {'message': 'Question created successfully'}, 201
+        """Create a new quiz."""
+        args = quiz_parser.parse_args()
+        try:
+            # Convert time duration string to a datetime object for storage
+            time_duration = datetime.strptime(args['time_duration'], "%H:%M").time()
+            quiz = Quiz(name=args['name'], time_duration=time_duration, remarks=args['remarks'])
+            db.session.add(quiz)
+            db.session.commit()
+            return {"message": "Quiz created successfully"}, 201
+        except Exception as e:
+            return {"message": f"Failed to create quiz: {str(e)}"}, 500
+
+    @auth_required('token')
+    @roles_required('admin')
+    def delete(self, quiz_id):
+        """Delete a quiz."""
+        try:
+            quiz = Quiz.query.get_or_404(quiz_id)
+            db.session.delete(quiz)
+            db.session.commit()
+            return {"message": "Quiz deleted successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to delete quiz: {str(e)}"}, 500
+
+    @auth_required('token')
+    @roles_required('admin')
+    def put(self, quiz_id):
+        """Update a quiz."""
+        args = quiz_parser.parse_args()
+        try:
+            quiz = Quiz.query.get_or_404(quiz_id)
+            quiz.name = args['name']
+            quiz.time_duration = datetime.strptime(args['time_duration'], "%H:%M").time()
+            quiz.remarks = args['remarks']
+            db.session.commit()
+            return {"message": "Quiz updated successfully"}, 200
+        except Exception as e:
+            return {"message": f"Failed to update quiz: {str(e)}"}, 500
 
 # Add resources to the API
+api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
+api.add_resource(ChapterResource, '/chapters', '/chapters/<int:chapter_id>')
+api.add_resource(QuizResource, '/quizzes', '/quizzes/<int:quiz_id>')
 api.add_resource(RegisterUser, '/register_user')
-api.add_resource(SubjectResource, '/subjects')
-api.add_resource(ChapterResource, '/chapters')
-api.add_resource(QuestionResource, '/questions')

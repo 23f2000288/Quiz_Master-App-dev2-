@@ -1,11 +1,11 @@
-import AdminHome from './AdminHome.js';
-import StudentHome from './StudentHome.js';
+import AdminQuiz from './AdminQuiz.js';
+import StudentQuiz from './StudentQuiz.js';
 
 export default {
   template: `
     <div>
-      <AdminHome v-if="userRole === 'admin'" />
-      <StudentHome v-if="userRole === 'stud'" />
+      <AdminQuiz v-if="userRole === 'admin'" />
+      <StudentQuiz v-if="userRole === 'stud'" />
     </div>
   `,
 
@@ -23,7 +23,7 @@ export default {
   },
 
   components: {
-    AdminHome,
-    StudentHome,
+    AdminQuiz,
+    StudentQuiz,
   },
 };

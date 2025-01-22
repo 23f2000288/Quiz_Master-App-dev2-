@@ -25,22 +25,23 @@ class Role(db.Model, RoleMixin):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
-#Subject Model
+# Subject model
 class Subject(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     description = db.Column(db.Text)
-    chapters = db.relationship('Chapter', backref='subject', lazy=True)
+    chapters = db.relationship('Chapter', back_populates='subject', lazy=True)
 
 # Chapter model
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
-    num_of_ques=db.Column(db.Integer)
+    num_of_ques = db.Column(db.Integer)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
-    quizzes = db.relationship('Quiz', backref='chapter', lazy=True)
+    quizzes = db.relationship('Quiz', back_populates='chapter', lazy=True)
 
+    subject = db.relationship('Subject', back_populates='chapters')
 # Quiz model
 class Quiz(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,6 +52,11 @@ class Quiz(db.Model):
     remarks = db.Column(db.Text)
     questions = db.relationship('Question', backref='quiz', lazy=True)
     scores = db.relationship('Score', backref='quiz', lazy=True)
+
+    chapter = db.relationship('Chapter', back_populates='quizzes')
+
+    # Added index for optimization
+    __table_args__ = (db.Index('idx_quiz_chapter', 'chapter_id'),)
 
 # Question model
 class Question(db.Model):
@@ -63,10 +69,14 @@ class Question(db.Model):
     option4 = db.Column(db.String(120))
     correct_option = db.Column(db.String(120), nullable=False)
 
+    # Index for quick lookup by quiz
+    __table_args__ = (db.Index('idx_question_quiz', 'quiz_id'),)
+
 # Score model
 class Score(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    timestamp = db.Column(db.DateTime)
-    total_scored = db.Column(db.Integer)
+    timestamp = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    total_scored = db.Column(db.Integer, nullable=False)
+    is_completed = db.Column(db.Boolean, default=False)
