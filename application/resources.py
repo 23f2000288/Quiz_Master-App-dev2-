@@ -330,27 +330,30 @@ class QuestionResource(Resource):
 
     @auth_required('token')
     @roles_required('admin')
-    def post(self, chapter_id):
-        """Create a quiz for a specific chapter."""
-        args = quiz_parser.parse_args()
+    @marshal_with(question_fields)
+    def post(self, quiz_id):
+        """Create a question for a specific quiz."""
+        args = question_parser.parse_args()
         try:
-            # Check if a quiz already exists for the chapter
-            existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
-            if existing_quiz:
-                return {"message": "A quiz already exists for this chapter."}, 400
+            # Ensure the quiz exists before adding a question
+            quiz = Quiz.query.get_or_404(quiz_id)
 
-            Chapter.query.get_or_404(chapter_id)
-            quiz = Quiz(
-                name=args['name'],
-                time_duration=datetime.strptime(args['time_duration'], "%H:%M").time(),
-                remarks=args['remarks'],
-                chapter_id=chapter_id,
+            # Create the new question
+            question = Question(
+                question_statement=args['question_statement'],
+                question_title=args['question_title'],
+                option1=args['option1'],
+                option2=args['option2'],
+                option3=args['option3'],
+                option4=args['option4'],
+                correct_option=args['correct_option'],
+                quiz_id=quiz_id
             )
-            db.session.add(quiz)
+            db.session.add(question)
             db.session.commit()
-            return {"message": "Quiz created successfully."}, 201
+            return {"message": "Question created successfully.", "question": question}, 201
         except Exception as e:
-            return {"message": f"Failed to create quiz: {str(e)}"}, 500
+            return {"message": f"Failed to create question: {str(e)}"}, 500
 
     @auth_required('token')
     @roles_required('admin')
@@ -396,9 +399,6 @@ api.add_resource(
     '/quizzes/<int:chapter_id>',   # For fetching or creating the single quiz for a chapter
     '/quizzes/<int:quiz_id>'            # For fetching, updating, or deleting a specific quiz
 )
-api.add_resource(
-    QuestionResource, 
-    '/quizzes/<int:quiz_id>/questions',    # Fetch all questions for a quiz or create a new question
-    '/questions/<int:question_id>'         # Update, fetch, or delete a specific question
-)
+api.add_resource(QuestionResource, '/quizzes/<int:quiz_id>/questions')
+
 api.add_resource(RegisterUser,'/register_user')
