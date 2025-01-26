@@ -7,48 +7,59 @@ export default {
     <div class="col col-xl-12">
       <div class="card" style="border-radius: 1rem; min-height: 80vh;">
         <div class="card-body d-flex flex-column">
-              <h3 class="text-center mb-4">Subject and Chapter managment</h3>
+              <h3 class="text-center mb-4" style="font-family: 'Georgia', serif; color: #3c3c3c;">Subject and Chapter managment</h3>
 
               <!-- Add Subject Button -->
-              <div class="mb-4">
-                <button class="btn btn-primary" @click="openModal">Add Subject</button>
+              <div class="justify-content-center mb-4">
+                    <button class="justify-content-center btn btn-primary rounded-pill" @click="openModal" style="font-size: 1rem; padding: 0.5rem 1.5rem; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <i class="fa fa-plus"></i> Add Subject
+                    </button>
               </div>
+
 
               <!-- Display Subjects -->
               <div v-if="subjects.length" class="mt-5">
-                <h4>Subjects</h4>
+                <h4 style="font-family: 'Georgia', serif; color: #3c3c3c;">Subjects</h4>
                 <div class="row">
                   <div v-for="subject in subjects" :key="subject.id" class="col-md-6 mb-4">
                     <div class="card h-100" style="height: 300px;">
                       <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">{{ subject.name }}</h5>
-                        <p class="card-text">{{ subject.description }}</p>
+                        <h5 class="card-title text-center fw-bold" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.name }}</h5>
+                        <p class="card-text text-center" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.description }}</p>
                         <button class="btn btn-danger btn-sm mb-2" @click="deleteSubject(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          Delete
+                          <i class="fa fa-trash"> Delete
                         </button>
 
                         <button class="btn btn-secondary btn-sm mb-2" @click="editSubject(subject)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          Edit
+                          <i class="fa fa-edit"> Edit
                         </button>
 
                         <!-- Button to open chapter modal -->
                         <button class="btn btn-info btn-sm mt-auto" @click="openChapterModal(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          Manage Chapters
+                          <i class="bi bi-book"> Manage Chapters
                         </button>
 
 
                         <!-- Display Chapters for the Subject -->
                         <div v-if="subject.chapters && subject.chapters.length" class="mt-3">
-                          <h6>Chapters</h6>
-                          <ul>
-                            <li v-for="chapter in subject.chapters" :key="chapter.id">
-                              {{ chapter.name }} 
-                               {{chapter.num_of_ques}}
-                               {{chapter.description}}
-                              <button class="btn btn-warning btn-sm" @click="editChapter(chapter)">Edit</button>
-                              <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">Delete</button>
-                            </li>
-                          </ul>
+                            <h6 class="text-primary">Chapters</h6>
+                            <div class="card-deck">
+                                <div v-for="chapter in subject.chapters" :key="chapter.id" class="card mb-3" style="min-width: 18rem;">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-center">{{ chapter.name }}</h5>
+                                        <p class="card-text text-center"><strong>Number of Questions:</strong> {{ chapter.num_of_ques }}</p>
+                                        <p class="card-text">{{ chapter.description }}</p>
+                                        <div class="d-flex justify-content-around">
+                                            <button class="btn btn-warning btn-sm" @click="editChapter(chapter)">
+                                                <i class="fa fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">
+                                                <i class="fa fa-trash"></i> Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                       </div>
                     </div>
@@ -322,4 +333,3 @@ export default {
     this.fetchSubjects(); // Load subjects and chapters when the component is mounted
   },
 };
-

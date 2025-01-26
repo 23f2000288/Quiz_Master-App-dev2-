@@ -4,6 +4,7 @@ from flask import jsonify
 from datetime import datetime
 from flask_security import roles_required, auth_required, hash_password
 from uuid import uuid4
+from datetime import datetime
 
 api = Api(prefix='/api')
 
@@ -123,22 +124,21 @@ class SubjectResource(Resource):
         except Exception as e:
             return {"message": f"Failed to update subject: {str(e)}"}, 500
 
-# Chapter Parser for validating input for creating/updating chapters
+
+
+
 chapter_parser = reqparse.RequestParser()
 chapter_parser.add_argument('name', type=str, required=True, help='Chapter name is required')
 chapter_parser.add_argument('description', type=str, required=True, help='Chapter description is required')
 chapter_parser.add_argument('num_of_ques', type=int, required=True, help='Number of questions is required')
 chapter_parser.add_argument('subject_id', type=int, required=True, help='Subject ID is required')
-
-# Marshalling fields for Chapter
 chapter_fields = {
     'id': fields.Integer,
     'name': fields.String,
     'description': fields.String,
+    'num_of_ques': fields.Integer,
     'subject_id': fields.Integer,
-    'num_of_ques': fields.Integer
 }
-
 # Chapter CRUD API
 class ChapterResource(Resource):
     @auth_required('token')
@@ -202,63 +202,84 @@ class ChapterResource(Resource):
             return {"message": "Chapter updated successfully"}, 200
         except Exception as e:
             return {"message": f"Failed to update chapter: {str(e)}"}, 500
-
+# Chapter Resource
 quiz_parser = reqparse.RequestParser()
 quiz_parser.add_argument('name', type=str, required=True, help='Quiz name is required')
-quiz_parser.add_argument('time_duration', type=str, required=True, help='Quiz time duration is required (HH:MM)')
-quiz_parser.add_argument('remarks', type=str)
+quiz_parser.add_argument('time_duration', type=str, required=True, help='Time duration (HH:MM) is required')
+quiz_parser.add_argument('remarks', type=str, help='Remarks for the quiz')
+quiz_parser.add_argument('chapter_id', type=int, required=True, help='Chapter ID is required')
+quiz_parser.add_argument('date_of_quiz',type=str,required=True,help='date_of_quiz is required')
 quiz_fields = {
     'id': fields.Integer,
     'name': fields.String,
-    'chapter_id': fields.Integer,
     'time_duration': fields.String,
-    'remarks': fields.String
+    'remarks': fields.String,
+    'chapter_id': fields.Integer,
+    'date_of_quiz':fields.String,
 }
-# Quiz CRUD API
 class QuizResource(Resource):
+    
     @auth_required('token')
     @roles_required('admin')
     @marshal_with(quiz_fields)
-    def get(self):
-        """Fetch all quizzes or filter by chapter ID."""
-        chapter_id = request.args.get('chapter_id', type=int)
+    def get(self, chapter_id=None, quiz_id=None):
+        """Fetch quizzes for a chapter or a specific quiz by ID."""
         try:
-            quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all() if chapter_id else Quiz.query.all()
-            return quizzes
+            if quiz_id:
+                quiz = Quiz.query.get_or_404(quiz_id)
+                return quiz
+            elif chapter_id:
+                quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all()  # Fetch all quizzes for the chapter
+                if not quizzes:
+                    return {"message": "No quizzes found for this chapter."}, 404
+                return quizzes
+            else:
+                quizzes = Quiz.query.all()
+                return quizzes
         except Exception as e:
             return {"message": f"Failed to fetch quizzes: {str(e)}"}, 500
 
+
     @auth_required('token')
     @roles_required('admin')
-    def post(self):
-        """Create a new quiz."""
+    def post(self, chapter_id):
+        """Create a quiz for a specific chapter."""
         args = quiz_parser.parse_args()
         try:
-            # Convert time duration string to a datetime object for storage
-            time_duration = datetime.strptime(args['time_duration'], "%H:%M").time()
-            quiz = Quiz(name=args['name'], time_duration=time_duration, remarks=args['remarks'])
+            Chapter.query.get_or_404(chapter_id)
+            existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
+            if existing_quiz:
+                return {"message": "A quiz already exists for this chapter."}, 400
+
+            quiz = Quiz(
+                name=args['name'],
+                time_duration=datetime.strptime(args['time_duration'], "%H:%M").time(),
+                remarks=args['remarks'],
+                chapter_id=chapter_id,
+                date_of_quiz=datetime.strptime(args['date_of_quiz'], '%Y-%m-%d').date()
+            )
             db.session.add(quiz)
             db.session.commit()
-            return {"message": "Quiz created successfully"}, 201
+            return {"message": "Quiz created successfully."}, 201
         except Exception as e:
             return {"message": f"Failed to create quiz: {str(e)}"}, 500
 
     @auth_required('token')
     @roles_required('admin')
     def delete(self, quiz_id):
-        """Delete a quiz."""
+        """Delete a specific quiz."""
         try:
             quiz = Quiz.query.get_or_404(quiz_id)
             db.session.delete(quiz)
             db.session.commit()
-            return {"message": "Quiz deleted successfully"}, 200
+            return {"message": "Quiz deleted successfully."}, 200
         except Exception as e:
             return {"message": f"Failed to delete quiz: {str(e)}"}, 500
 
     @auth_required('token')
     @roles_required('admin')
     def put(self, quiz_id):
-        """Update a quiz."""
+        """Update a specific quiz."""
         args = quiz_parser.parse_args()
         try:
             quiz = Quiz.query.get_or_404(quiz_id)
@@ -266,12 +287,118 @@ class QuizResource(Resource):
             quiz.time_duration = datetime.strptime(args['time_duration'], "%H:%M").time()
             quiz.remarks = args['remarks']
             db.session.commit()
-            return {"message": "Quiz updated successfully"}, 200
+            return {"message": "Quiz updated successfully."}, 200
         except Exception as e:
             return {"message": f"Failed to update quiz: {str(e)}"}, 500
 
-# Add resources to the API
+question_parser = reqparse.RequestParser()
+question_parser.add_argument('question_statement', type=str, required=True, help='Question statement is required')
+question_parser.add_argument('question_title', type=str, required=True, help='Question title is required')
+question_parser.add_argument('option1', type=str, required=True, help='Option 1 is required')
+question_parser.add_argument('option2', type=str, required=True, help='Option 2 is required')
+question_parser.add_argument('option3', type=str, help='Option 3 is optional')
+question_parser.add_argument('option4', type=str, help='Option 4 is optional')
+question_parser.add_argument('correct_option', type=str, required=True, help='Correct option is required')
+# Fields for marshaling
+question_fields = {
+    'id': fields.Integer,
+    'question_statement': fields.String,
+    'question_title': fields.String,
+    'option1': fields.String,
+    'option2': fields.String,
+    'option3': fields.String,
+    'option4': fields.String,
+    'correct_option': fields.String,
+}
+class QuestionResource(Resource):
+    @auth_required('token')
+    @roles_required('admin')
+    @marshal_with(question_fields)
+    def get(self, quiz_id=None, question_id=None):
+        """Fetch questions for a quiz or a specific question by ID."""
+        try:
+            if question_id:
+                question = Question.query.get_or_404(question_id)
+                return question
+            elif quiz_id:
+                questions = Question.query.filter_by(quiz_id=quiz_id).all()
+                return questions
+            else:
+                return {"message": "Quiz ID or Question ID is required."}, 400
+        except Exception as e:
+            return {"message": f"Failed to fetch questions: {str(e)}"}, 500
+
+    @auth_required('token')
+    @roles_required('admin')
+    def post(self, chapter_id):
+        """Create a quiz for a specific chapter."""
+        args = quiz_parser.parse_args()
+        try:
+            # Check if a quiz already exists for the chapter
+            existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
+            if existing_quiz:
+                return {"message": "A quiz already exists for this chapter."}, 400
+
+            Chapter.query.get_or_404(chapter_id)
+            quiz = Quiz(
+                name=args['name'],
+                time_duration=datetime.strptime(args['time_duration'], "%H:%M").time(),
+                remarks=args['remarks'],
+                chapter_id=chapter_id,
+            )
+            db.session.add(quiz)
+            db.session.commit()
+            return {"message": "Quiz created successfully."}, 201
+        except Exception as e:
+            return {"message": f"Failed to create quiz: {str(e)}"}, 500
+
+    @auth_required('token')
+    @roles_required('admin')
+    def delete(self, question_id):
+        """Delete a specific question."""
+        try:
+            question = Question.query.get_or_404(question_id)
+            db.session.delete(question)
+            db.session.commit()
+            return {"message": "Question deleted successfully."}, 200
+        except Exception as e:
+            return {"message": f"Failed to delete question: {str(e)}"}, 500
+
+    @auth_required('token')
+    @roles_required('admin')
+    def put(self, question_id):
+        """Update a specific question."""
+        args = question_parser.parse_args()
+        try:
+            question = Question.query.get_or_404(question_id)
+            question.question_statement = args['question_statement']
+            question.question_title = args['question_title']
+            question.option1 = args['option1']
+            question.option2 = args['option2']
+            question.option3 = args['option3']
+            question.option4 = args['option4']
+            question.correct_option = args['correct_option']
+            db.session.commit()
+            return {"message": "Question updated successfully."}, 200
+        except Exception as e:
+            return {"message": f"Failed to update question: {str(e)}"}, 500
+
+# Registering Resources
 api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
-api.add_resource(ChapterResource, '/chapters', '/chapters/<int:chapter_id>')
-api.add_resource(QuizResource, '/quizzes', '/quizzes/<int:quiz_id>')
-api.add_resource(RegisterUser, '/register_user')
+api.add_resource(
+    ChapterResource, 
+    '/chapters',                      # Fetch all chapters or create a new chapter
+    '/chapters/<int:chapter_id>'      # Update or delete a specific chapter
+)
+
+api.add_resource(
+    QuizResource,
+    '/quizzes/<int:chapter_id>',   # For fetching or creating the single quiz for a chapter
+    '/quizzes/<int:quiz_id>'            # For fetching, updating, or deleting a specific quiz
+)
+api.add_resource(
+    QuestionResource, 
+    '/quizzes/<int:quiz_id>/questions',    # Fetch all questions for a quiz or create a new question
+    '/questions/<int:question_id>'         # Update, fetch, or delete a specific question
+)
+api.add_resource(RegisterUser,'/register_user')

@@ -37,50 +37,41 @@ class Subject(db.Model):
         lazy=True,
         cascade='all, delete-orphan'
     )
-
-
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
     num_of_ques = db.Column(db.Integer)
-    # Foreign key with ondelete='CASCADE' for database-level integrity
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id', ondelete='CASCADE'), nullable=False)
-    quizzes = db.relationship('Quiz', back_populates='chapter', lazy=True)
+    quizzes = db.relationship('Quiz', back_populates='chapter', lazy='joined', cascade='all, delete')
 
-    # Back-populated relationship with Subject
     subject = db.relationship('Subject', back_populates='chapters')
+
 
 class Quiz(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
-    date_of_quiz = db.Column(db.DateTime)
+    date_of_quiz=db.Column(db.Date)
     time_duration = db.Column(db.Time, nullable=False)
     remarks = db.Column(db.Text)
-    questions = db.relationship('Question', backref='quiz', lazy=True)
+    questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete')
     scores = db.relationship('Score', backref='quiz', lazy=True)
 
     chapter = db.relationship('Chapter', back_populates='quizzes')
-
-    # Added index for optimization
     __table_args__ = (db.Index('idx_quiz_chapter', 'chapter_id'),)
 
-# Question model
+
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
     question_statement = db.Column(db.Text, nullable=False)
-    option1 = db.Column(db.String(120), nullable=False)
-    option2 = db.Column(db.String(120), nullable=False)
-    option3 = db.Column(db.String(120))
-    option4 = db.Column(db.String(120))
+    question_title = db.Column(db.Text, nullable=False)
+    options = db.Column(db.JSON, nullable=False)  # Flexible JSON for options
     correct_option = db.Column(db.String(120), nullable=False)
-
-    # Index for quick lookup by quiz
     __table_args__ = (db.Index('idx_question_quiz', 'quiz_id'),)
 
-# Score model
+
 class Score(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
@@ -88,3 +79,4 @@ class Score(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     total_scored = db.Column(db.Integer, nullable=False)
     is_completed = db.Column(db.Boolean, default=False)
+
