@@ -5,6 +5,7 @@ from datetime import datetime
 from flask_security import roles_required, auth_required, hash_password
 from uuid import uuid4
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 
 api = Api(prefix='/api')
 
@@ -290,101 +291,92 @@ class QuizResource(Resource):
             return {"message": "Quiz updated successfully."}, 200
         except Exception as e:
             return {"message": f"Failed to update quiz: {str(e)}"}, 500
-
 question_parser = reqparse.RequestParser()
 question_parser.add_argument('question_statement', type=str, required=True, help='Question statement is required')
 question_parser.add_argument('question_title', type=str, required=True, help='Question title is required')
-question_parser.add_argument('option1', type=str, required=True, help='Option 1 is required')
-question_parser.add_argument('option2', type=str, required=True, help='Option 2 is required')
-question_parser.add_argument('option3', type=str, help='Option 3 is optional')
-question_parser.add_argument('option4', type=str, help='Option 4 is optional')
+question_parser.add_argument('options', type=dict, required=True, help='Options are required')
 question_parser.add_argument('correct_option', type=str, required=True, help='Correct option is required')
-# Fields for marshaling
 question_fields = {
     'id': fields.Integer,
     'question_statement': fields.String,
     'question_title': fields.String,
-    'option1': fields.String,
-    'option2': fields.String,
-    'option3': fields.String,
-    'option4': fields.String,
+    'options': fields.Raw,
     'correct_option': fields.String,
 }
 class QuestionResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     @marshal_with(question_fields)
-    def get(self, quiz_id=None, question_id=None):
-        """Fetch questions for a quiz or a specific question by ID."""
-        try:
-            if question_id:
-                question = Question.query.get_or_404(question_id)
-                return question
-            elif quiz_id:
-                questions = Question.query.filter_by(quiz_id=quiz_id).all()
-                return questions
-            else:
-                return {"message": "Quiz ID or Question ID is required."}, 400
-        except Exception as e:
-            return {"message": f"Failed to fetch questions: {str(e)}"}, 500
+    def get(self, quiz_id, question_id=None):
+        if question_id:
+            question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
+            return question
+        else:
+            questions = Question.query.filter_by(quiz_id=quiz_id).all()
+            return questions
 
     @auth_required('token')
     @roles_required('admin')
     @marshal_with(question_fields)
     def post(self, quiz_id):
-        """Create a question for a specific quiz."""
         args = question_parser.parse_args()
         try:
-            # Ensure the quiz exists before adding a question
             quiz = Quiz.query.get_or_404(quiz_id)
-
-            # Create the new question
+            if args['correct_option'] not in args['options'].values():
+                return {"message": "Correct option must be one of the provided options."}, 400
+            
             question = Question(
                 question_statement=args['question_statement'],
                 question_title=args['question_title'],
-                option1=args['option1'],
-                option2=args['option2'],
-                option3=args['option3'],
-                option4=args['option4'],
+                options=args['options'],
                 correct_option=args['correct_option'],
                 quiz_id=quiz_id
             )
             db.session.add(question)
             db.session.commit()
-            return {"message": "Question created successfully.", "question": question}, 201
+            return question, 201
+        except IntegrityError:
+            db.session.rollback()
+            return {"message": "Failed to create question due to integrity error."}, 400
         except Exception as e:
+            db.session.rollback()
             return {"message": f"Failed to create question: {str(e)}"}, 500
 
     @auth_required('token')
     @roles_required('admin')
-    def delete(self, question_id):
-        """Delete a specific question."""
+    def delete(self, quiz_id, question_id):
         try:
-            question = Question.query.get_or_404(question_id)
+            question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
             db.session.delete(question)
             db.session.commit()
             return {"message": "Question deleted successfully."}, 200
         except Exception as e:
+            db.session.rollback()
             return {"message": f"Failed to delete question: {str(e)}"}, 500
 
     @auth_required('token')
     @roles_required('admin')
-    def put(self, question_id):
-        """Update a specific question."""
+    @marshal_with(question_fields)
+    def put(self, quiz_id, question_id):
         args = question_parser.parse_args()
         try:
-            question = Question.query.get_or_404(question_id)
+            question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
+            if args['correct_option'] not in args['options'].values():
+                return {"message": "Correct option must be one of the provided options."}, 400
+            
             question.question_statement = args['question_statement']
             question.question_title = args['question_title']
-            question.option1 = args['option1']
-            question.option2 = args['option2']
-            question.option3 = args['option3']
-            question.option4 = args['option4']
+            question.options = args['options']
             question.correct_option = args['correct_option']
             db.session.commit()
-            return {"message": "Question updated successfully."}, 200
+            return question, 200
+        except IntegrityError:
+            db.session.rollback()
+            return {"message": "Failed to update question due to integrity error."}, 400
         except Exception as e:
+            db.session.rollback()
             return {"message": f"Failed to update question: {str(e)}"}, 500
+
 
 # Registering Resources
 api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
@@ -399,6 +391,8 @@ api.add_resource(
     '/quizzes/<int:chapter_id>',   # For fetching or creating the single quiz for a chapter
     '/quizzes/<int:quiz_id>'            # For fetching, updating, or deleting a specific quiz
 )
-api.add_resource(QuestionResource, '/quizzes/<int:quiz_id>/questions')
 
+api.add_resource(QuestionResource, 
+                 '/quizzes/<int:quiz_id>/questions',
+                 '/quizzes/<int:quiz_id>/questions/<int:question_id>')
 api.add_resource(RegisterUser,'/register_user')
