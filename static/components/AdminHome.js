@@ -3,19 +3,18 @@ export default {
   template: `
     <div class="container-fluid d-flex flex-column py-5" 
     style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); height: 100vh;">
-  <div class="row d-flex justify-content-center align-items-start h-100">
-    <div class="col col-xl-12">
-      <div class="card" style="border-radius: 1rem; min-height: 80vh;">
-        <div class="card-body d-flex flex-column">
-              <h3 class="text-center mb-4" style="font-family: 'Georgia', serif; color: #3c3c3c;">Subject and Chapter managment</h3>
+      <div class="row d-flex justify-content-center align-items-start h-100">
+        <div class="col col-xl-12">
+          <div class="card" style="border-radius: 1rem; min-height: 80vh;">
+            <div class="card-body d-flex flex-column">
+              <h3 class="text-center mb-4" style="font-family: 'Georgia', serif; color: #3c3c3c;">Subject and Chapter Management</h3>
 
               <!-- Add Subject Button -->
               <div class="justify-content-center mb-4">
-                    <button class="justify-content-center btn btn-primary rounded-pill" @click="openModal" style="font-size: 1rem; padding: 0.5rem 1.5rem; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        <i class="fa fa-plus"></i> Add Subject
-                    </button>
+                <button class="justify-content-center btn btn-primary rounded-pill" @click="openModal" style="font-size: 1rem; padding: 0.5rem 1.5rem; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                  <i class="fa fa-plus"></i> Add Subject
+                </button>
               </div>
-
 
               <!-- Display Subjects -->
               <div v-if="subjects.length" class="mt-5">
@@ -27,39 +26,33 @@ export default {
                         <h5 class="card-title text-center fw-bold" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.name }}</h5>
                         <p class="card-text text-center" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.description }}</p>
                         <button class="btn btn-danger btn-sm mb-2" @click="deleteSubject(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          <i class="fa fa-trash"> Delete
+                          <i class="fa fa-trash"></i> Delete
                         </button>
-
                         <button class="btn btn-secondary btn-sm mb-2" @click="editSubject(subject)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          <i class="fa fa-edit"> Edit
+                          <i class="fa fa-edit"></i> Edit
                         </button>
-
-                        <!-- Button to open chapter modal -->
                         <button class="btn btn-info btn-sm mt-auto" @click="openChapterModal(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          <i class="bi bi-book"> Manage Chapters
+                          <i class="bi bi-book"></i> Manage Chapters
                         </button>
-
-
                         <!-- Display Chapters for the Subject -->
                         <div v-if="subject.chapters && subject.chapters.length" class="mt-3">
-                            <h6 class="text-primary">Chapters</h6>
-                            <div class="card-deck">
-                                <div v-for="chapter in subject.chapters" :key="chapter.id" class="card mb-3" style="min-width: 18rem;">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-center">{{ chapter.name }}</h5>
-                                        <p class="card-text text-center"><strong>Number of Questions:</strong> {{ chapter.num_of_ques }}</p>
-                                        <p class="card-text">{{ chapter.description }}</p>
-                                        <div class="d-flex justify-content-around">
-                                            <button class="btn btn-warning btn-sm" @click="editChapter(chapter)">
-                                                <i class="fa fa-edit"></i> Edit
-                                            </button>
-                                            <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">
-                                                <i class="fa fa-trash"></i> Delete
-                                            </button>
-                                        </div>
-                                    </div>
+                          <h6 class="text-primary">Chapters</h6>
+                          <div class="card-deck">
+                            <div v-for="chapter in subject.chapters" :key="chapter.id" class="card mb-3" style="min-width: 18rem;">
+                              <div class="card-body">
+                                <h5 class="card-title text-center">{{ chapter.name }}</h5>
+                                <p class="card-text">{{ chapter.description }}</p>
+                                <div class="d-flex justify-content-around">
+                                  <button class="btn btn-warning btn-sm" @click="editChapter(chapter)">
+                                    <i class="fa fa-edit"></i> Edit
+                                  </button>
+                                  <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">
+                                    <i class="fa fa-trash"></i> Delete
+                                  </button>
                                 </div>
+                              </div>
                             </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -72,18 +65,18 @@ export default {
                 <p>No subjects available. Add a subject to get started.</p>
               </div>
 
-              <!-- Modal for Creating Subject -->
+              <!-- Modal for Creating/Editing Subject -->
               <div v-if="showModal" class="modal fade show" tabindex="-1" role="dialog" style="display: block;">
                 <div class="modal-dialog" role="document">
                   <div class="modal-content">
                     <div class="modal-header">
-                      <h5 class="modal-title">Add Subject</h5>
+                      <h5 class="modal-title">{{ subjectForm.id ? 'Edit Subject' : 'Add Subject' }}</h5>
                       <button type="button" class="close" @click="closeModal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                       </button>
                     </div>
                     <div class="modal-body">
-                      <form @submit.prevent="createSubject">
+                      <form @submit.prevent="subjectForm.id ? updateSubject() : createSubject()">
                         <div class="form-outline mb-3">
                           <input v-model="subjectForm.name" type="text" class="form-control" placeholder="Subject Name" required />
                         </div>
@@ -92,7 +85,7 @@ export default {
                         </div>
                         <button :disabled="isLoading" class="btn btn-primary">
                           <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                          Add Subject
+                          {{ subjectForm.id ? 'Update Subject' : 'Add Subject' }}
                         </button>
                       </form>
                     </div>
@@ -111,21 +104,21 @@ export default {
                       </button>
                     </div>
                     <div class="modal-body">
-                      <form @submit.prevent="createChapter">
-                        <div class="form-outline mb-3">
+                     
+                      <form @submit.prevent="createOrUpdateChapter">
+                      <!-- form inputs -->
+                      <div class="form-outline mb-3">
                           <input v-model="chapterForm.name" type="text" class="form-control" placeholder="Chapter Name" required />
                         </div>
                         <div class="form-outline mb-3">
                           <textarea v-model="chapterForm.description" class="form-control" placeholder="Chapter Description" rows="3" required></textarea>
                         </div>
-                        <div class="form-outline mb-3">
-                          <input v-model="chapterForm.num_of_ques" type="number" class="form-control" placeholder="Number of Questions" required />
-                        </div>
-                        <button :disabled="isLoading" class="btn btn-primary">
-                          <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                          Add Chapter
-                        </button>
-                      </form>
+                      <button :disabled="isLoading" class="btn btn-primary">
+                        <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        {{ chapterForm.id ? 'Update Chapter' : 'Add Chapter' }}
+                      </button>
+                    </form>
+
                     </div>
                   </div>
                 </div>
@@ -141,42 +134,35 @@ export default {
     return {
       subjects: [],
       subjectForm: { name: '', description: '' },
-      chapterForm: { name: '', description: '', num_of_ques: '', subject_id: '' },
+      chapterForm: { name: '', description: '', subject_id: '' },
       isLoading: false,
       showModal: false,
       showChapterModal: false,
       token: localStorage.getItem('auth-token'),
-      currentSubjectId: null, // Track which subject the user is managing chapters for
+      currentSubjectId: null,
     };
   },
 
   methods: {
-    // Open the modal to create a new subject
     openModal() {
-      console.log("Opening Modal...");
-      this.subjectForm = { name: '', description: '' };  // Reset the form
-      this.showModal = true;  // Show modal
+      this.subjectForm = { name: '', description: '' };
+      this.showModal = true;
     },
 
-    // Close the modal for creating subject
     closeModal() {
-      console.log("Closing Modal...");
-      this.showModal = false;  // Hide modal
+      this.showModal = false;
     },
 
-    // Open the modal for managing chapters for a specific subject
     openChapterModal(subjectId) {
       this.currentSubjectId = subjectId;
-      this.chapterForm = { name: '', description: '', num_of_ques: '', subject_id: subjectId };  // Reset form with subject ID
-      this.showChapterModal = true;  // Show chapter modal
+      this.chapterForm = { name: '', description: '', subject_id: subjectId };
+      this.showChapterModal = true;
     },
 
-    // Close the modal for managing chapters
     closeChapterModal() {
-      this.showChapterModal = false;  // Hide chapter modal
+      this.showChapterModal = false;
     },
 
-    // Fetch all subjects with their chapters
     async fetchSubjects() {
       try {
         const res = await fetch('/api/subjects', {
@@ -187,7 +173,6 @@ export default {
         });
         if (res.ok) {
           this.subjects = await res.json();
-          // Fetch chapters for each subject
           for (let subject of this.subjects) {
             const chapterRes = await fetch(`/api/chapters?subject_id=${subject.id}`, {
               headers: {
@@ -209,7 +194,6 @@ export default {
       }
     },
 
-    // Create a new subject
     async createSubject() {
       if (!this.token) {
         alert('Please log in first');
@@ -229,9 +213,9 @@ export default {
         });
 
         if (res.ok) {
-          this.subjectForm = { name: '', description: '' }; // Reset form
-          await this.fetchSubjects(); // Refresh the subjects list
-          this.closeModal(); // Close the modal
+          this.subjectForm = { name: '', description: '' };
+          await this.fetchSubjects();
+          this.closeModal();
         } else {
           const errorResponse = await res.json();
           alert(`Failed to create subject: ${errorResponse.message || 'Unknown error'}`);
@@ -241,7 +225,44 @@ export default {
       }
     },
 
-    // Delete a subject
+    async updateSubject() {
+      if (!this.token) {
+        alert('Please log in first');
+        return;
+      }
+
+      this.isLoading = true;
+
+      try {
+        const res = await fetch(`/api/subjects/${this.subjectForm.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authentication-Token': this.token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: this.subjectForm.name,
+            description: this.subjectForm.description
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          alert(data.message);
+          this.closeModal();
+          await this.fetchSubjects();
+        } else {
+          const errorResponse = await res.json();
+          alert(`Failed to update subject: ${errorResponse.message || 'Unknown error'}`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('An error occurred while updating the subject');
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
     async deleteSubject(subjectId) {
       if (!confirm('Are you sure?')) return;
       try {
@@ -262,14 +283,12 @@ export default {
       }
     },
 
-    // Edit an existing subject
     editSubject(subject) {
       this.subjectForm = { ...subject };
       this.showModal = true;
     },
 
-    // Create a new chapter for a subject
-    async createChapter() {
+    async createOrUpdateChapter() {
       if (!this.token) {
         alert('Please log in first');
         return;
@@ -278,8 +297,11 @@ export default {
       this.isLoading = true;
 
       try {
-        const res = await fetch('/api/chapters', {
-          method: 'POST',
+        const method = this.chapterForm.id ? 'PUT' : 'POST';
+        const url = this.chapterForm.id ? `/api/chapters/${this.chapterForm.id}` : '/api/chapters';
+
+        const res = await fetch(url, {
+          method: method,
           headers: {
             'Authentication-Token': this.token,
             'Content-Type': 'application/json',
@@ -288,26 +310,21 @@ export default {
         });
 
         if (res.ok) {
-          this.chapterForm = { name: '', description: '', num_of_ques: '', subject_id: this.currentSubjectId };
+          this.chapterForm = { id: null, name: '', description: '', subject_id: this.currentSubjectId };
           this.closeChapterModal();
-          await this.fetchSubjects(); // Refresh subjects and chapters
+          await this.fetchSubjects();
         } else {
           const errorResponse = await res.json();
-          alert(`Failed to create chapter: ${errorResponse.message || 'Unknown error'}`);
+          alert(`Failed to ${this.chapterForm.id ? 'update' : 'create'} chapter: ${errorResponse.message || 'Unknown error'}`);
         }
+      } catch (err) {
+        console.error(err);
+        alert(`An error occurred while ${this.chapterForm.id ? 'updating' : 'creating'} the chapter`);
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Edit a chapter
-    editChapter(chapter) {
-      this.chapterForm = { ...chapter };
-      this.chapterForm.subject_id = this.currentSubjectId;
-      this.showChapterModal = true;
-    },
-
-    // Delete a chapter
     async deleteChapter(chapterId) {
       if (!confirm('Are you sure?')) return;
       try {
@@ -319,7 +336,7 @@ export default {
           },
         });
         if (res.ok) {
-          await this.fetchSubjects(); // Refresh the subjects list
+          await this.fetchSubjects();
         } else {
           alert('Failed to delete chapter');
         }
@@ -327,9 +344,14 @@ export default {
         console.error(err);
       }
     },
+    editChapter(chapter) {
+      this.chapterForm = { ...chapter };
+      this.chapterForm.subject_id = this.currentSubjectId;
+      this.showChapterModal = true;
+    },
   },
 
   mounted() {
-    this.fetchSubjects(); // Load subjects and chapters when the component is mounted
+    this.fetchSubjects();
   },
 };

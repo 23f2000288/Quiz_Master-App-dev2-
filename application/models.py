@@ -41,7 +41,7 @@ class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
-    num_of_ques = db.Column(db.Integer)
+    
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id', ondelete='CASCADE'), nullable=False)
     quizzes = db.relationship('Quiz', back_populates='chapter', lazy='joined', cascade='all, delete')
 
@@ -53,6 +53,7 @@ class Quiz(db.Model):
     name = db.Column(db.String(120), nullable=False)
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
     date_of_quiz=db.Column(db.Date)
+    num_of_ques = db.Column(db.Integer, nullable=False)
     time_duration = db.Column(db.Time, nullable=False)
     remarks = db.Column(db.Text)
     questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete')

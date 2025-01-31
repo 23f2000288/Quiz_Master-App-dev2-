@@ -11,7 +11,7 @@ export default {
               </h3>
 
               <!-- Display Chapters -->
-              <div v-if="chapters.length" class="mt-5">
+              <div v-if="chapters.length >0" class="mt-5">
                 <h4 style="font-family: 'Georgia', serif; color: #3c3c3c;">Chapters</h4>
                 <div class="row">
                   <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-4">
@@ -25,7 +25,7 @@ export default {
                         </p>
 
                         <!-- Quizzes -->
-                        <div v-if="chapter.quizzes" class="mt-3">
+                        <div v-if="chapter.quizzes && chapter.quizzes.length > 0" class="mt-3">
                           <h6 class="text-primary">Quizzes</h6>
                           <div class="card-deck">
                             <div v-for="quiz in chapter.quizzes" :key="quiz.id" class="card mb-3" style="min-width: 18rem;">
@@ -33,6 +33,9 @@ export default {
                                 <h5 class="card-title text-center">{{ quiz.name }}</h5>
                                 <p class="card-text text-center">
                                   <strong>Duration:</strong> {{ quiz.time_duration }} mins
+                                </p>
+                                <p class="card-text text-center">
+                                  <strong>Number of ques:</strong> {{ quiz.num_of_ques || 'N/A' }}
                                 </p>
                                 <p class="card-text text-center">
                                   <strong>Remarks:</strong> {{ quiz.remarks }}
@@ -111,6 +114,9 @@ export default {
                           <input v-model="quizForm.time_duration" type="text" class="form-control" placeholder="Duration (HH:MM)" required />
                         </div>
                         <div class="form-outline mb-3">
+                          <input v-model="quizForm.num_of_ques" type="int" class="form-control" placeholder="Num of Ques" required />
+                        </div>
+                        <div class="form-outline mb-3">
                           <input v-model="quizForm.remarks" type="text" class="form-control" placeholder="Remarks" required />
                         </div>
                         <div class="form-outline mb-3">
@@ -178,7 +184,7 @@ export default {
   data() {
     return {
       chapters: [],
-      quizForm: { name: '', time_duration: '', chapter_id: '', remarks: '', date_of_quiz: '' },
+      quizForm: { name: '', time_duration: '', chapter_id: '', remarks: '', date_of_quiz: '',num_of_ques: '' },
       questionForm: { question_title: '', question_statement: '', option1: '', option2: '', option3: '', option4: '', correct_option: '' },
       isLoading: false,
       showQuizModal: false,
@@ -191,6 +197,7 @@ export default {
   },
 
   methods: {
+    
     async fetchChapters() {
       try {
         const response = await fetch('/api/chapters', {
@@ -199,21 +206,25 @@ export default {
             'Content-Type': 'application/json',
           },
         });
-
+    
         const data = await response.json();
         this.chapters = data;
-
+    
         for (const chapter of this.chapters) {
+          console.log(`Fetching quizzes for chapter ${chapter.id} from: /api/quizzes/${chapter.id}`);
+    
           const quizResponse = await fetch(`/api/quizzes/${chapter.id}`, {
             headers: {
               'Authentication-Token': this.token,
               'Content-Type': 'application/json',
             },
           });
-
+    
           if (quizResponse.ok) {
-            chapter.quizzes = await quizResponse.json();
+            const quizzes = await quizResponse.json();
+            chapter.quizzes = Array.isArray(quizzes) ? quizzes : [];
           } else {
+            console.warn(`No quizzes found for chapter ${chapter.id}`);
             chapter.quizzes = [];
           }
         }
@@ -221,9 +232,11 @@ export default {
         console.error('Failed to fetch chapters and quizzes:', error);
       }
     },
+    
+    
 
     openQuizModal(chapterId) {
-      this.quizForm = { name: '', time_duration: '', remarks: '', date_of_quiz: '', chapter_id: chapterId };
+      this.quizForm = { name: '', time_duration: '', remarks: '', date_of_quiz: '',num_of_ques: '', chapter_id: chapterId };
       this.currentQuizId = chapterId;
       this.showQuizModal = true;
       this.isEditingQuiz = false;
@@ -271,9 +284,10 @@ export default {
       this.showQuizModal = true;
     },
     
-    async deleteQuiz(quizId) {
+    async deleteQuiz(quizId)
+     {
       if (!confirm('Are you sure you want to delete this quiz?')) return;
-
+      console.log(`Attempting to delete quiz with ID: ${quizId}`);
       try {
         const response = await fetch(`/api/quizzes/${quizId}`, {
           method: 'DELETE',
@@ -380,21 +394,20 @@ export default {
     },
     
     
-    
-    
-
-    async deleteQuestion(questionId) {
+    async deleteQuestion(quizId, questionId) {
       if (!confirm('Are you sure you want to delete this question?')) return;
-
+    
+      console.log(`Attempting to delete question with ID: ${questionId} from quiz with ID: ${quizId}`);
+    
       try {
-        const response = await fetch(`/api/quizzes/${this.currentQuizId}/questions/${questionId}`, {
+        const response = await fetch(`/api/quizzes/${quizId}/questions/${questionId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             'Authentication-Token': this.token,
           },
         });
-
+    
         if (response.ok) {
           alert('Question deleted successfully.');
           await this.fetchChapters();
@@ -407,6 +420,10 @@ export default {
         alert('An error occurred while trying to delete the question.');
       }
     },
+    
+    
+
+    
   },
   
   mounted() {
