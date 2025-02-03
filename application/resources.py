@@ -269,8 +269,8 @@ class QuizResource(Resource):
     
     @auth_required('token')
     @roles_required('admin')
-    def delete(self,  quiz_id=None,chapter_id=None):
-        print(f"Received DELETE request. chapter_id: {chapter_id}, quiz_id: {quiz_id}")
+    def delete(self, quiz_id):
+        
         
         if quiz_id is None:
             return {"message": "Quiz ID is required for deletion."}, 400
@@ -284,8 +284,7 @@ class QuizResource(Resource):
             db.session.rollback()
             print(f"Error deleting quiz: {str(e)}")
             return {"message": f"Failed to delete quiz: {str(e)}"}, 500
-
-
+        
     @auth_required('token')
     @roles_required('admin')
     def put(self, quiz_id):
@@ -294,13 +293,25 @@ class QuizResource(Resource):
         try:
             quiz = Quiz.query.get_or_404(quiz_id)
             quiz.name = args['name']
-            quiz.time_duration = datetime.strptime(args['time_duration'], "%H:%M").time()
+            
+            # Handle both "HH:MM" and "HH:MM:SS" formats
+            time_str = args['time_duration'].strip()
+            if len(time_str.split(':')) == 2:
+                time_str += ":00"  # Append seconds if missing
+            
+            try:
+                quiz.time_duration = datetime.strptime(time_str, "%H:%M:%S").time()
+            except ValueError:
+                return {"message": "Invalid time format. Use HH:MM or HH:MM:SS"}, 400
+            
             quiz.remarks = args['remarks']
-            quiz.num_of_ques=args['num_of_ques']
+            quiz.num_of_ques = args['num_of_ques']
+            quiz.date_of_quiz = datetime.strptime(args['date_of_quiz'], '%Y-%m-%d').date()
             db.session.commit()
             return {"message": "Quiz updated successfully."}, 200
         except Exception as e:
             return {"message": f"Failed to update quiz: {str(e)}"}, 500
+
 question_parser = reqparse.RequestParser()
 question_parser.add_argument('question_statement', type=str, required=True, help='Question statement is required')
 question_parser.add_argument('question_title', type=str, required=True, help='Question title is required')
@@ -363,15 +374,7 @@ class QuestionResource(Resource):
         db.session.delete(question)
         db.session.commit()
         return {"message": "Question deleted successfully."}, 200
-        """ question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
-            db.session.delete(question)
-            db.session.commit()
-            return {"message": "Question deleted successfully."}, 200
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error deleting question: {str(e)}", exc_info=True)
-            return {"message": "An error occurred while deleting the question."}, 500
-"""
+        
     @auth_required('token')
     @roles_required('admin')
     @marshal_with(question_fields)
@@ -379,22 +382,23 @@ class QuestionResource(Resource):
         args = question_parser.parse_args()
         try:
             question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
-            if args['correct_option'] not in args['options'].values():
-                return {"message": "Correct option must be one of the provided options."}, 400
             
+            # Add validation for correct option
+            if args['correct_option'] not in [str(v) for v in args['options'].values()]:
+                return {"message": "Correct option must match one of the option values"}, 400
+
+            # Update fields
             question.question_statement = args['question_statement']
             question.question_title = args['question_title']
             question.options = args['options']
             question.correct_option = args['correct_option']
+            
             db.session.commit()
             return question, 200
-        except IntegrityError:
-            db.session.rollback()
-            return {"message": "Failed to update question due to integrity error."}, 400
         except Exception as e:
             db.session.rollback()
+            print(f"Update error: {str(e)}")  # Detailed logging
             return {"message": f"Failed to update question: {str(e)}"}, 500
-
 
 # Registering Resources
 api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
@@ -406,7 +410,15 @@ api.add_resource(
 
 api.add_resource(QuizResource, 
                  '/quizzes/<int:chapter_id>',  # For GET requests (fetching quizzes for a chapter)
-                 '/quizzes/<int:quiz_id>') 
+                 '/quizzes/<int:quiz_id>',
+                 ) 
+api.add_resource(QuizResource, '/quizzes/<int:quiz_id>/delete', endpoint='quiz_delete')
+api.add_resource(QuizResource, 
+    '/quizzes/<int:quiz_id>/update', 
+    endpoint='quiz_update'
+)
+
+
 api.add_resource(QuestionResource, 
         
              '/quizzes/<int:quiz_id>/questions',
