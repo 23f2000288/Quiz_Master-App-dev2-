@@ -3,12 +3,25 @@ import Home from './components/Home.js'
 import Login from './components/Login.js'
 import Register from './components/Register.js'
 import Quiz from './components/Quiz.js'
-
+import StudentQuiz from './components/StudentQuiz.js'
+import Score from './components/Score.js'
 const routes = [
   { path: '/', component: Home, name: 'Home' },
   { path: '/login', component: Login, name: 'Login' },
   {path:'/register', component: Register, name: 'Register'},
   {path:'/quiz', component: Quiz, name: 'Quiz'},
+  {
+    path: '/quiz/:id',
+    component: StudentQuiz,
+    name: 'student-quiz'
+  },
+  {
+    path: '/scores',
+    name: 'Score',
+    component: Score
+  }
+  
+  
 
   
   

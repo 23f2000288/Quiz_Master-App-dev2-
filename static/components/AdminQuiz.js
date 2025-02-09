@@ -77,9 +77,11 @@ export default {
                         </div>
 
                         <!-- Add Quiz Button -->
-                        <button v-if="!chapter.quizzes?.length" class="btn btn-primary btn-sm mt-auto" @click="openQuizModal(chapter.id)"
+                        <button class="btn btn-primary btn-sm mt-auto" @click="openQuizModal(chapter.id)"
                                 style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
-                          <i class="fa fa-plus"></i> Add Quiz
+                            <i class="fa fa-plus"></i> Add Quiz
+                        </button>
+
                         </button>
                       </div>
                     </div>

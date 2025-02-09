@@ -21,14 +21,14 @@ export default {
     </button>
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item" v-if="is_login" >
+        <li class="nav-item" v-if="is_login" v-if="role === 'admin'" >
           <router-link
             class="nav-link active "
             style="color: white; font-weight: bold; margin-right: 15px;"
             to="/quiz"
           >Quiz</router-link>
         </li>
-        <li class="nav-item" >
+        <li class="nav-item" v-if="!is_login" >
           <router-link
             class="nav-link active"
             style="color: white; font-weight: bold; margin-right: 15px;"
@@ -42,6 +42,14 @@ export default {
             style="color: white; font-weight: bold; margin-right: 15px;"
           >Summary</a>
         </li>
+        <li class="nav-item" v-if="role === 'stud'" >
+          <router-link
+            class="nav-link active"
+            style="color: white; font-weight: bold; margin-right: 15px;"
+            to="/scores"
+          >Scores</router-link>
+        </li>
+        
         <li class="nav-item" v-if="is_login">
           <a
             class="nav-link"
@@ -50,6 +58,7 @@ export default {
             @click="logout"
           >Logout</a>
         </li>
+        
       </ul>
       <form class="d-flex ms-auto" role="search"  v-if="is_login">
         <input

@@ -1,11 +1,12 @@
 from flask_restful import Resource, Api, reqparse, marshal_with, fields, request,marshal
-from .models import Subject, Chapter, Quiz, Question, User, db, Role
-from flask import jsonify, current_app
+from .models import Subject, Chapter, Quiz, Question, User, db, Role, Score
+from flask import jsonify, current_app, abort
 from datetime import datetime
-from flask_security import roles_required, auth_required, hash_password
+from flask_security import roles_required, auth_required, hash_password, current_user
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 api = Api(prefix='/api')
 
@@ -247,9 +248,9 @@ class QuizResource(Resource):
         args = quiz_parser.parse_args()
         try:
             Chapter.query.get_or_404(chapter_id)
-            existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
+            """existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
             if existing_quiz:
-                return {"message": "A quiz already exists for this chapter."}, 400
+                return {"message": "A quiz already exists for this chapter."}, 400"""
 
             quiz = Quiz(
                 name=args['name'],
@@ -424,3 +425,169 @@ api.add_resource(QuestionResource,
              '/quizzes/<int:quiz_id>/questions',
                  '/quizzes/<int:quiz_id>/questions/<int:question_id>')
 api.add_resource(RegisterUser,'/register_user')
+
+
+student_quiz_fields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'date_of_quiz': fields.DateTime(dt_format='iso8601'),
+    'time_duration': fields.String,
+    'num_of_ques': fields.Integer,
+    'chapter': fields.Nested({
+        'name': fields.String,
+        'subject': fields.Nested({
+            'name': fields.String
+        })
+    }),
+    'status': fields.String(attribute=lambda x: 'upcoming' if x.date_of_quiz > date.today() else 'completed')
+}
+class StudentQuizResource(Resource):
+    @marshal_with(student_quiz_fields)
+    @auth_required('token')
+    @roles_required('stud')
+    def get(self):
+        """Get all quizzes for student with status"""
+        quizzes = Quiz.query.options(
+            joinedload(Quiz.chapter).joinedload(Chapter.subject)
+        ).all()
+        return quizzes
+api.add_resource(StudentQuizResource, '/student/quizzes')
+
+
+question_fields = {
+    'id': fields.Integer,
+    'question_statement': fields.String,
+    'question_title': fields.String,
+    'options': fields.Raw
+}
+
+quiz_with_questions_fields = {
+    'quiz': fields.Nested(student_quiz_fields),
+    'questions': fields.List(fields.Nested(question_fields))
+}
+
+class StudentQuizQuestionResource(Resource):
+    @marshal_with(quiz_with_questions_fields)
+    @auth_required('token')
+    @roles_required('stud')
+    def get(self, quiz_id):
+        quiz = Quiz.query.options(
+            joinedload(Quiz.chapter).joinedload(Chapter.subject)
+        ).get_or_404(quiz_id)
+        
+        if quiz.date_of_quiz > date.today():
+            questions = Question.query.filter_by(quiz_id=quiz_id).all()
+            return {'quiz': quiz, 'questions': questions}
+        
+        abort(403, description="Quiz is not available yet")
+
+api.add_resource(StudentQuizQuestionResource, '/student/quiz/<int:quiz_id>')
+
+
+
+score_fields = {
+    'id': fields.Integer,
+    'quiz_id': fields.Integer,
+    'total_scored': fields.Integer,
+    'timestamp': fields.DateTime,
+    'is_completed': fields.Boolean
+}
+
+
+            
+        
+class StudentQuizSubmitResource(Resource):
+    @auth_required('token')
+    @roles_required('stud')
+    def post(self, quiz_id):
+        quiz = Quiz.query.get_or_404(quiz_id)
+        user_id = current_user.id
+
+        # Check existing submission
+        existing_score = Score.query.filter_by(
+            quiz_id=quiz_id, 
+            user_id=user_id
+        ).first()
+        
+        if existing_score and existing_score.is_completed:
+            abort(400, description="Quiz already submitted")
+
+        # Validate request format
+        if not request.is_json:
+            abort(415, description="Request must be JSON")
+            
+        answers = request.get_json().get('answers', {})
+
+        # Calculate score
+        total_scored = 0
+        questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        
+        for question in questions:
+            qid_str = str(question.id)
+            submitted_answer = answers.get(qid_str)
+            
+            if submitted_answer:
+                try:
+                    correct = str(question.correct_option).strip().lower()
+                    submitted = str(submitted_answer).strip().lower()
+                    
+                    print(f"Q{question.id}: Comparing {correct} vs {submitted}")
+                    
+                    if submitted == correct:
+                        total_scored += 1
+                except Exception as e:
+                    print(f"Error processing Q{question.id}: {str(e)}")
+
+        # Database update
+        if existing_score:
+            existing_score.total_scored = total_scored
+            existing_score.is_completed = True
+            existing_score.timestamp = db.func.current_timestamp()
+        else:
+            score = Score(
+                quiz_id=quiz_id,
+                user_id=user_id,
+                total_scored=total_scored,
+                is_completed=True
+            )
+            db.session.add(score)
+            
+        db.session.commit()
+        return marshal(score, score_fields), 201
+
+api.add_resource(StudentQuizSubmitResource, '/student/quiz/<int:quiz_id>/submit')
+
+class CustomDateTimeField(fields.DateTime):
+    def format(self, value):
+        if value is None:
+            return None
+        return value.isoformat()
+
+score_fields_with_quiz = {
+    'id': fields.Integer,
+    'timestamp': CustomDateTimeField(attribute='timestamp'),
+    'total_scored': fields.Integer,
+    'quiz': fields.Nested({
+        'id': fields.Integer,
+        'name': fields.String,
+        'num_of_ques': fields.Integer
+    })
+}
+
+class StudentScoresResource(Resource):
+    @auth_required('token')
+    def get(self):
+        user_id = current_user.id
+        scores = Score.query.filter_by(user_id=user_id).join(Quiz).all()
+        
+        return marshal([{
+            'id': score.id,
+            'timestamp': score.timestamp,
+            'total_scored': score.total_scored,
+            'quiz': {
+                'id': score.quiz.id,
+                'name': score.quiz.name,
+                'num_of_ques': score.quiz.num_of_ques
+            }
+        } for score in scores], score_fields_with_quiz), 200
+api.add_resource(StudentScoresResource, '/student/scores')
