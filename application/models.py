@@ -81,3 +81,14 @@ class Score(db.Model):
     total_scored = db.Column(db.Integer, nullable=False)
     is_completed = db.Column(db.Boolean, default=False)
 
+class UserAnswer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False)
+    selected_option = db.Column(db.String(120), nullable=True)  # Store the selected option
+
+    # Define a unique constraint to prevent duplicate answers for the same user, quiz, and question
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'quiz_id', 'question_id', name='unique_user_answer'),
+    )
