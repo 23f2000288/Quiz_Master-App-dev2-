@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Quiz Report</title>
+</head>
+<body>
+    <h1>Monthly Quiz Report for {{ user.fullname }}</h1>
+    <p>Here's your quiz performance for the past month:</p>
+    
+    <h2>Summary</h2>
+    <ul>
+        <li>Total Quizzes Taken: {{ total_quizzes }}</li>
+        <li>Average Score: {{ "%.2f"|format(average_score) }}</li>
+    </ul>
+    
+    <h2>Quiz Details</h2>
+    <table border="1">
+        <tr>
+            <th>Quiz Name</th>
+            <th>Score</th>
+            <th>Date</th>
+        </tr>
+        {% for score in scores %}
+        <tr>
+            <td>{{ score.quiz.name }}</td>
+            <td>{{ score.total_scored }}</td>
+            <td>{{ score.timestamp.strftime('%Y-%m-%d') }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

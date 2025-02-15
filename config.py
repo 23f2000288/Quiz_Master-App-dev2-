@@ -14,3 +14,4 @@ class DevelopmentConfig(Config):
     WTF_CSRF_ENABLED=False
     SECURITY_TOKEN_AUTHENTICATION_HEADER = "Authentication-Token"
     SECURITY_TOKEN_MAX_AGE = 3600  # optional, sets the token expiration time
+    
