@@ -24,7 +24,8 @@ user_fields = {
     'email': fields.String,
     'fullname': fields.String,
     'qualification': fields.String,
-    'dob': fields.String
+    'dob': fields.String,
+    'active': fields.Boolean  
 }
 class RegisterUser(Resource):
     @marshal_with(user_fields)
@@ -50,7 +51,8 @@ class RegisterUser(Resource):
                 qualification=data.get('qualification'),
                 dob=dob,
                 fs_uniquifier=fs_uniquifier,
-                active=True
+                active=True,
+                role_id=2,
             )
             user.roles.append(role)  # Assign the 'stud' role
 
@@ -66,6 +68,46 @@ class RegisterUser(Resource):
             return {"message": f"Invalid data: {str(e)}"}, 400
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 400
+
+"""class UserManagement(Resource):
+    @marshal_with(user_fields)
+    def get(self):
+        users = User.query.all()
+        return users, 200
+
+    def put(self, user_id):
+        user = User.query.get_or_404(user_id)
+        data = request.get_json()
+        
+        if 'active' in data:
+            user.active = bool(data['active'])  # Convert to Boolean
+            db.session.commit()
+            return {"message": f"User {user.email} {'activated' if user.active else 'deactivated'} successfully"}, 200
+        
+        return {"message": "No changes made"}, 400
+api.add_resource(UserManagement, '/users', '/users/<int:user_id>')"""
+class UserManagement(Resource):
+    @marshal_with(user_fields)
+    def get(self):
+        # Get the 'admin' role
+        admin_role = Role.query.filter_by(name='admin').first()
+        
+        # Query all users except those with the admin role
+        users = User.query.filter(~User.roles.contains(admin_role)).all()
+        return users, 200
+
+    def put(self, user_id):
+        user = User.query.get_or_404(user_id)
+        data = request.get_json()
+        
+        if 'active' in data:
+            user.active = bool(data['active'])  # Convert to Boolean
+            db.session.commit()
+            return {"message": f"User {user.email} {'activated' if user.active else 'deactivated'} successfully"}, 200
+        
+        return {"message": "No changes made"}, 400
+
+api.add_resource(UserManagement, '/users', '/users/<int:user_id>')
 # Subject Parser for validating input for creating/updating subjects
 subject_parser = reqparse.RequestParser()
 subject_parser.add_argument('name', type=str, required=True, help='Subject name is required')
@@ -76,6 +118,30 @@ subject_fields = {
     'name': fields.String,
     'description': fields.String
 }
+std_chapter_fields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'description': fields.String
+}
+
+std_subject_fields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'description': fields.String,
+    'chapters': fields.List(fields.Nested(std_chapter_fields))
+}
+class StudentSubjectResource(Resource):
+    @marshal_with(std_subject_fields)
+    @auth_required('token')
+    def get(self):
+        """Fetch all subjects with their chapters for students."""
+        try:
+            subjects = Subject.query.all()
+            return subjects
+        except Exception as e:
+            return {"message": f"Failed to fetch subjects: {str(e)}"}, 500
+api.add_resource(StudentSubjectResource, '/student/subjects')
+
 
 # Subject CRUD API
 class SubjectResource(Resource):

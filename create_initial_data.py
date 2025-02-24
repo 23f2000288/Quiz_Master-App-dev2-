@@ -15,7 +15,9 @@ with app.app_context():
                               role_id=admin_role.id,
                               roles=['admin'])
     if not datastore.find_user(email="stud@gmail.com"):
-        stu_user=datastore.create_user(email="stud@gmail.com", 
+        stu_user=datastore.create_user(email="stud@gmail.com",
+                              fullname="Faiz Khan" ,
+                              qualification="Undergraduate",
                               password=hash_password("123"),  # Use hash_password
                               role_id=stud_role.id,
                               active=True,

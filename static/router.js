@@ -1,10 +1,12 @@
-/*import StudentHome from './components/StudentHome.js'*/
+
 import Home from './components/Home.js'
 import Login from './components/Login.js'
 import Register from './components/Register.js'
 import Quiz from './components/Quiz.js'
 import StudentQuiz from './components/StudentQuiz.js'
 import Score from './components/Score.js'
+import Users from './components/Users.js'
+
 const routes = [
   { path: '/', component: Home, name: 'Home' },
   { path: '/login', component: Login, name: 'Login' },
@@ -19,7 +21,12 @@ const routes = [
     path: '/scores',
     name: 'Score',
     component: Score
-  }
+  },
+  {
+    path: '/Users',
+    name: 'Users',
+    component: Users
+  },
   
   
 

@@ -10,11 +10,21 @@ export default {
                 Quiz Management
               </h3>
 
+              <!-- Search Box -->
+              <div class="mb-3">
+                <input
+                  type="text"
+                  class="form-control"
+                  v-model="searchQuery"
+                  placeholder="Search quizzes or questions..."
+                />
+              </div>
+
               <!-- Display Chapters -->
-              <div v-if="chapters.length > 0" class="mt-5">
+              <div v-if="filteredChapters.length > 0" class="mt-5">
                 <h4 style="font-family: 'Georgia', serif; color: #3c3c3c;">Chapters</h4>
                 <div class="row">
-                  <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-4">
+                  <div v-for="chapter in filteredChapters" :key="chapter.id" class="col-md-6 mb-4">
                     <div class="card h-100" style="height: 300px;">
                       <div class="card-body d-flex flex-column">
                         <h5 class="card-title text-center fw-bold" style="font-family: 'Georgia', serif; color: #3c3c3c;">
@@ -90,7 +100,7 @@ export default {
               </div>
 
               <!-- No Chapters Available -->
-              <div v-if="!chapters.length" class="text-center mt-5">
+              <div v-if="!filteredChapters.length" class="text-center mt-5">
                 <p>No chapters available. Add a chapter to get started.</p>
               </div>
 
@@ -192,7 +202,26 @@ export default {
       isEditingQuestion: false,
       currentQuizId: null,
       token: localStorage.getItem('auth-token'),
+      searchQuery: '', // Add searchQuery
     };
+  },
+
+  computed: {
+    filteredChapters() {
+      const query = this.searchQuery.toLowerCase();
+
+      return this.chapters.map(chapter => ({
+        ...chapter,
+        quizzes: chapter.quizzes ? chapter.quizzes.filter(quiz => {
+          const quizMatch = quiz.name.toLowerCase().includes(query);
+          const questionMatch = quiz.questions && quiz.questions.some(question =>
+            question.question_title.toLowerCase().includes(query) ||
+            question.question_statement.toLowerCase().includes(query)
+          );
+          return quizMatch || questionMatch;
+        }) : []
+      })).filter(chapter => chapter.quizzes.length > 0 || chapter.name.toLowerCase().includes(query) || chapter.description.toLowerCase().includes(query));
+    },
   },
 
   methods: {
@@ -204,13 +233,13 @@ export default {
             'Content-Type': 'application/json',
           },
         });
-    
+
         const data = await response.json();
         this.chapters = data.map(chapter => ({
           ...chapter,
           quizzes: []
         }));
-    
+
         await Promise.all(this.chapters.map(async (chapter) => {
           const quizResponse = await fetch(`/api/quizzes/${chapter.id}`, {
             headers: {
@@ -218,7 +247,7 @@ export default {
               'Content-Type': 'application/json',
             },
           });
-    
+
           if (quizResponse.ok) {
             const quizzes = await quizResponse.json();
             const quizzesWithQuestions = await Promise.all(quizzes.map(async (quiz) => {
@@ -228,10 +257,16 @@ export default {
                   'Content-Type': 'application/json',
                 },
               });
-              const questions = await questionResponse.json();
-              return { ...quiz, questions: Array.isArray(questions) ? questions : [] };
+              if (questionResponse.ok) {
+                const questions = await questionResponse.json();
+                return { ...quiz, questions: Array.isArray(questions) ? questions : [] };
+              } else {
+                return { ...quiz, questions: [] };
+              }
             }));
             this.$set(chapter, 'quizzes', quizzesWithQuestions);
+          } else {
+            this.$set(chapter, 'quizzes', []);
           }
         }));
       } catch (error) {
@@ -240,14 +275,14 @@ export default {
     },
 
     openQuestionModal(quizId) {
-      this.questionForm = { 
-        question_title: '', 
-        question_statement: '', 
-        option1: '', 
-        option2: '', 
-        option3: '', 
-        option4: '', 
-        correct_option: '' 
+      this.questionForm = {
+        question_title: '',
+        question_statement: '',
+        option1: '',
+        option2: '',
+        option3: '',
+        option4: '',
+        correct_option: ''
       };
       this.currentQuizId = quizId;
       this.showQuestionModal = true;
@@ -259,7 +294,7 @@ export default {
     },
 
     editQuestion(quizId, question) {
-      this.questionForm = { 
+      this.questionForm = {
         id: question.id,
         question_title: question.question_title,
         question_statement: question.question_statement,
@@ -281,7 +316,7 @@ export default {
           ? `/api/quizzes/${this.currentQuizId}/questions/${this.questionForm.id}`
           : `/api/quizzes/${this.currentQuizId}/questions`;
         const method = this.isEditingQuestion ? 'PUT' : 'POST';
-    
+
         const questionData = {
           question_title: this.questionForm.question_title,
           question_statement: this.questionForm.question_statement,
@@ -293,7 +328,7 @@ export default {
           },
           correct_option: this.questionForm.correct_option
         };
-    
+
         const response = await fetch(url, {
           method,
           headers: {
@@ -302,12 +337,12 @@ export default {
           },
           body: JSON.stringify(questionData),
         });
-    
+
         if (!response.ok) {
           const errorMessage = await response.text();
           throw new Error(`Error: ${response.status} ${response.statusText} - ${errorMessage}`);
         }
-    
+
         console.log('Question submitted successfully.');
         this.closeQuestionModal();
         await this.fetchChapters();
@@ -326,7 +361,7 @@ export default {
             'Content-Type': 'application/json',
           },
         });
-    
+
         if (response.ok) {
           const questions = await response.json();
           this.chapters.forEach(chapter => {
@@ -343,7 +378,7 @@ export default {
 
     async deleteQuestion(quizId, questionId) {
       if (!confirm('Are you sure you want to delete this question?')) return;
-    
+
       try {
         const response = await fetch(`/api/quizzes/${quizId}/questions/${questionId}`, {
           method: 'DELETE',
@@ -352,7 +387,7 @@ export default {
             'Authentication-Token': this.token,
           },
         });
-    
+
         if (response.ok) {
           await this.fetchChapters();
         }
@@ -378,7 +413,7 @@ export default {
           ? `/api/quizzes/${this.quizForm.id}/update`
           : `/api/quizzes/${this.quizForm.chapter_id}`;
         const method = this.isEditingQuiz ? 'PUT' : 'POST';
-    
+
         const response = await fetch(url, {
           method,
           headers: {
@@ -387,12 +422,12 @@ export default {
           },
           body: JSON.stringify(this.quizForm),
         });
-    
+
         if (!response.ok) {
           const errorMessage = await response.text();
           throw new Error(`Error: ${response.status} ${response.statusText} - ${errorMessage}`);
         }
-    
+
         console.log('Quiz submitted successfully.');
         this.closeQuizModal();
         await this.fetchChapters();
@@ -419,7 +454,7 @@ export default {
             'Authentication-Token': this.token,
           },
         });
-    
+
         if (response.ok) {
           alert('Quiz deleted successfully.');
           await this.fetchChapters();
@@ -432,12 +467,9 @@ export default {
         alert('An error occurred while trying to delete the quiz.');
       }
     },
-
-    // Other methods (quiz-related) remain the same as in your paste-3.txt
   },
 
   mounted() {
     this.fetchChapters();
   },
 };
-

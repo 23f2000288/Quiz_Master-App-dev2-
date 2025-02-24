@@ -1,7 +1,6 @@
-
 export default {
   template: `
-    <nav class="navbar navbar-expand-lg" style="background-color: black;">
+    <nav class="navbar navbar-expand-lg" style="background-color: black; ">
   <div class="container-fluid">
     <router-link
             class="nav-link active"
@@ -21,7 +20,7 @@ export default {
     </button>
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item" v-if="is_login" v-if="role === 'admin'" >
+        <li class="nav-item"  v-if="role === 'admin'" >
           <router-link
             class="nav-link active "
             style="color: white; font-weight: bold; margin-right: 15px;"
@@ -49,6 +48,13 @@ export default {
             to="/scores"
           >Scores</router-link>
         </li>
+        <li class="nav-item" v-if="role === 'admin'" >
+          <router-link
+            class="nav-link active"
+            style="color: white; font-weight: bold; margin-right: 15px;"
+            to="/Users"
+          >Users</router-link>
+        </li>
         
         <li class="nav-item" v-if="is_login">
           <a
@@ -60,29 +66,30 @@ export default {
         </li>
         
       </ul>
-      <form class="d-flex ms-auto" role="search"  v-if="is_login">
-        <input
-          class="form-control me-2"
-          type="search"
-          placeholder="Search"
-          aria-label="Search"
-        />
-        <button class="btn btn-outline-light" type="submit">Search</button>
-      </form>
+      
     </div>
   </div>
 </nav>
+
 
   `,
   data() {
     // Check if 'role' is passed as a URL parameter, otherwise fallback to localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const roleFromUrl = urlParams.get('role'); // This gets the role from the query string
-
+    
     return {
       role: roleFromUrl || localStorage.getItem('role') || '', // Use the URL parameter or fall back to localStorage
       is_login: localStorage.getItem('auth-token') || '', // Default to empty if not set
+      isScrolled: false,
+      
     };
+  },
+  mounted() {
+    window.addEventListener('scroll', this.handleScroll);
+  },
+  beforeDestroy() {
+    window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
     logout() {
@@ -90,5 +97,10 @@ export default {
       localStorage.removeItem('role');
       this.$router.push({ path: '/login' });
     },
+    handleScroll() {
+      this.isScrolled = window.scrollY > 0;
+    },
+    
   },
 };
+

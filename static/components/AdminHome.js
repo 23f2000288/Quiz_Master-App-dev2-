@@ -2,7 +2,7 @@
 export default {
   template: `
     <div class="container-fluid d-flex flex-column py-5" 
-    style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); height: 100vh;">
+      style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); height: 100vh;">
       <div class="row d-flex justify-content-center align-items-start h-100">
         <div class="col col-xl-12">
           <div class="card" style="border-radius: 1rem; min-height: 80vh;">
@@ -11,29 +11,44 @@ export default {
 
               <!-- Add Subject Button -->
               <div class="justify-content-center mb-4">
-                <button class="justify-content-center btn btn-primary rounded-pill" @click="openModal" style="font-size: 1rem; padding: 0.5rem 1.5rem; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <button class="justify-content-center btn btn-primary rounded-pill" @click="openModal" 
+                  style="font-size: 1rem; padding: 0.5rem 1.5rem; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                   <i class="fa fa-plus"></i> Add Subject
                 </button>
               </div>
 
+              <!-- Search Box -->
+              <div class="mb-3">
+                <input
+                  type="text"
+                  class="form-control"
+                  v-model="searchQuery"
+                  placeholder="Search subjects or chapters..."
+                />
+              </div>
+
               <!-- Display Subjects -->
-              <div v-if="subjects.length" class="mt-5">
+              <div v-if="filteredSubjects.length" class="mt-5">
                 <h4 style="font-family: 'Georgia', serif; color: #3c3c3c;">Subjects</h4>
                 <div class="row">
-                  <div v-for="subject in subjects" :key="subject.id" class="col-md-6 mb-4">
+                  <div v-for="subject in filteredSubjects" :key="subject.id" class="col-md-6 mb-4">
                     <div class="card h-100" style="height: 300px;">
                       <div class="card-body d-flex flex-column">
                         <h5 class="card-title text-center fw-bold" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.name }}</h5>
                         <p class="card-text text-center" style="font-family: 'Georgia', serif; color: #3c3c3c;">{{ subject.description }}</p>
-                        <button class="btn btn-danger btn-sm mb-2" @click="deleteSubject(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
+                        <button class="btn btn-danger btn-sm mb-2" @click="deleteSubject(subject.id)" 
+                          style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
                           <i class="fa fa-trash"></i> Delete
                         </button>
-                        <button class="btn btn-secondary btn-sm mb-2" @click="editSubject(subject)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
+                        <button class="btn btn-secondary btn-sm mb-2" @click="editSubject(subject)" 
+                          style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
                           <i class="fa fa-edit"></i> Edit
                         </button>
-                        <button class="btn btn-info btn-sm mt-auto" @click="openChapterModal(subject.id)" style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
+                        <button class="btn btn-info btn-sm mt-auto" @click="openChapterModal(subject.id)" 
+                          style="font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 20px;">
                           <i class="bi bi-book"></i> Manage Chapters
                         </button>
+                        
                         <!-- Display Chapters for the Subject -->
                         <div v-if="subject.chapters && subject.chapters.length" class="mt-3">
                           <h6 class="text-primary">Chapters</h6>
@@ -61,6 +76,9 @@ export default {
               </div>
 
               <!-- No Subjects Available -->
+              <div v-if="!filteredSubjects.length && subjects.length" class="text-center mt-5">
+                <p>No subjects or chapters match the search query.</p>
+              </div>
               <div v-if="!subjects.length" class="text-center mt-5">
                 <p>No subjects available. Add a subject to get started.</p>
               </div>
@@ -92,7 +110,7 @@ export default {
                   </div>
                 </div>
               </div>
-
+              
               <!-- Modal for Managing Chapters -->
               <div v-if="showChapterModal" class="modal fade show" tabindex="-1" role="dialog" style="display: block;">
                 <div class="modal-dialog" role="document">
@@ -106,18 +124,18 @@ export default {
                     <div class="modal-body">
                      
                       <form @submit.prevent="createOrUpdateChapter">
-                      <!-- form inputs -->
-                      <div class="form-outline mb-3">
+                        <!-- form inputs -->
+                        <div class="form-outline mb-3">
                           <input v-model="chapterForm.name" type="text" class="form-control" placeholder="Chapter Name" required />
                         </div>
                         <div class="form-outline mb-3">
                           <textarea v-model="chapterForm.description" class="form-control" placeholder="Chapter Description" rows="3" required></textarea>
                         </div>
-                      <button :disabled="isLoading" class="btn btn-primary">
-                        <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        {{ chapterForm.id ? 'Update Chapter' : 'Add Chapter' }}
-                      </button>
-                    </form>
+                        <button :disabled="isLoading" class="btn btn-primary">
+                          <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          {{ chapterForm.id ? 'Update Chapter' : 'Add Chapter' }}
+                        </button>
+                      </form>
 
                     </div>
                   </div>
@@ -140,7 +158,25 @@ export default {
       showChapterModal: false,
       token: localStorage.getItem('auth-token'),
       currentSubjectId: null,
+      searchQuery: '',
     };
+  },
+
+  computed: {
+    filteredSubjects() {
+      const query = this.searchQuery.toLowerCase();
+      return this.subjects.filter(subject => {
+        const subjectMatch = subject.name.toLowerCase().includes(query) ||
+                              subject.description.toLowerCase().includes(query);
+
+        const chapterMatch = subject.chapters && subject.chapters.some(chapter =>
+          chapter.name.toLowerCase().includes(query) ||
+          chapter.description.toLowerCase().includes(query)
+        );
+
+        return subjectMatch || chapterMatch;
+      });
+    },
   },
 
   methods: {
@@ -344,6 +380,7 @@ export default {
         console.error(err);
       }
     },
+
     editChapter(chapter) {
       this.chapterForm = { ...chapter };
       this.chapterForm.subject_id = this.currentSubjectId;
@@ -355,3 +392,4 @@ export default {
     this.fetchSubjects();
   },
 };
+
