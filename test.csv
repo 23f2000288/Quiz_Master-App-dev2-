@@ -1,3 +1,10 @@
-name,remarks
-HTML(Quiz1),good
-QUiz1(JAva),gdood
+Quiz id,Quiz Name,Quiz Chapter Id,Quiz Date,Quiz scores,Quiz Remarks
+1,HTML(Quiz1),1,2025-02-22,True,good
+1,HTML(Quiz1),1,2025-02-22,True,good
+1,HTML(Quiz1),1,2025-02-22,False,good
+2,Quiz1(Biology),5,2025-02-22,False,kjdfie
+2,Quiz1(Biology),5,2025-02-22,False,kjdfie
+2,Quiz1(Biology),5,2025-02-22,False,kjdfie
+3,Quiz1(Java),4,2025-03-09,False,good
+3,Quiz1(Java),4,2025-03-09,False,good
+3,Quiz1(Java),4,2025-03-09,True,good

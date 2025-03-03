@@ -35,13 +35,13 @@ def send_email(sender, **kwargs):
 def setup_periodic_tasks(sender, **kwargs):
     # Daily reminder at 8 PM
     sender.add_periodic_task(
-        crontab(hour=22, minute=5),
+        crontab(hour=13, minute=15),
         send_daily_reminders.s(),
     )
     
     # Monthly report on the 1st of every month at 9 AM
     sender.add_periodic_task(
-        crontab(day_of_month=15, hour=22, minute=5),
+        crontab(day_of_month=3, hour=13, minute=12),
         send_monthly_reports.s(),
     )
 

@@ -1,11 +1,10 @@
-from flask import current_app as app, jsonify, request, render_template, send_file
+from flask import current_app as app, jsonify, request, render_template, send_file, abort
 from flask_security import auth_required, roles_required, verify_password, hash_password, current_user
 from flask_restful import marshal, fields
-from .tasks import create_resource_csv
+from .tasks import create_resource_csv, create_admin_resource_csv
 from .models import User, db
 from .sec import datastore
 from celery.result import AsyncResult
-#from .tasks import say_hello
 import flask_excel as excel
 
 @app.get('/')
@@ -35,7 +34,7 @@ def user_login():
     if not user.active:
         return jsonify({"message": "Your account is deactivated. Please contact the administrator."}), 403
 
-    if verify_password(data.get("password"), user.password):  # Use Flask-Security's verify_password
+    if verify_password(data.get("password"), user.password): 
         return jsonify({
             "token": user.get_auth_token(),
             "email": user.email,
@@ -45,17 +44,35 @@ def user_login():
         return jsonify({"message": "Wrong Password"}), 400
 
 
-
-@app.get('/download-csv')
+@app.route('/download-csv', methods=['GET'])
+@roles_required('stud')
 def download_csv():
-    task=create_resource_csv.delay()
-    return jsonify({"task-id" : task.id})
+    task = create_resource_csv.delay()
+    return jsonify({"task_id": task.id}), 202
+
 
 @app.get('/get-csv/<task_id>')
+@roles_required('stud')
 def get_csv(task_id):
     res=AsyncResult(task_id)
     if res.ready():
         filename= res.result
         return send_file(filename, as_attachment=True)
     else:
-        return {"message" : "Task Pending "},404
+        return {"message" : "Task Pending "},202
+    
+@app.route('/admin/download-csv', methods=['GET'])
+@roles_required('admin') 
+def admin_download_csv():
+    task = create_admin_resource_csv.delay()
+    return jsonify({"task_id": task.id}), 202
+
+@app.route('/admin/get-csv/<task_id>', methods=['GET'])
+@roles_required('admin')  
+def admin_get_csv(task_id):
+    res = AsyncResult(task_id)
+    if res.ready():
+        filename = res.result
+        return send_file(filename, as_attachment=True)
+    else:
+        return jsonify({"status": "pending", "message": "Task is still processing"}), 202

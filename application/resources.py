@@ -8,6 +8,8 @@ from datetime import datetime, date
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import aliased
+from sqlalchemy import func
+
 
 api = Api(prefix='/api')
 
@@ -69,23 +71,7 @@ class RegisterUser(Resource):
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 400
 
-"""class UserManagement(Resource):
-    @marshal_with(user_fields)
-    def get(self):
-        users = User.query.all()
-        return users, 200
 
-    def put(self, user_id):
-        user = User.query.get_or_404(user_id)
-        data = request.get_json()
-        
-        if 'active' in data:
-            user.active = bool(data['active'])  # Convert to Boolean
-            db.session.commit()
-            return {"message": f"User {user.email} {'activated' if user.active else 'deactivated'} successfully"}, 200
-        
-        return {"message": "No changes made"}, 400
-api.add_resource(UserManagement, '/users', '/users/<int:user_id>')"""
 class UserManagement(Resource):
     @marshal_with(user_fields)
     def get(self):
@@ -101,14 +87,13 @@ class UserManagement(Resource):
         data = request.get_json()
         
         if 'active' in data:
-            user.active = bool(data['active'])  # Convert to Boolean
+            user.active = bool(data['active']) 
             db.session.commit()
             return {"message": f"User {user.email} {'activated' if user.active else 'deactivated'} successfully"}, 200
         
         return {"message": "No changes made"}, 400
 
 api.add_resource(UserManagement, '/users', '/users/<int:user_id>')
-# Subject Parser for validating input for creating/updating subjects
 subject_parser = reqparse.RequestParser()
 subject_parser.add_argument('name', type=str, required=True, help='Subject name is required')
 subject_parser.add_argument('description', type=str, required=True, help='Subject description is required')
@@ -785,13 +770,13 @@ class CustomDateTimeField(fields.DateTime):
         return value.isoformat()
 
 score_fields_with_quiz = {
-    'id': fields.Integer,
-    'timestamp': CustomDateTimeField(attribute='timestamp'),
-    'total_scored': fields.Integer,
-    'quiz': fields.Nested({
-        'id': fields.Integer,
-        'name': fields.String,
-        'num_of_ques': fields.Integer
+    'id' : fields.Integer,
+    'timestamp' : CustomDateTimeField(attribute='timestamp'),
+    'total_scored' : fields.Integer,
+    'quiz' : fields.Nested({
+        'id' : fields.Integer,
+        'name' : fields.String,
+        'num_of_ques' : fields.Integer
     })
 }
 
@@ -812,3 +797,80 @@ class StudentScoresResource(Resource):
             }
         } for score in scores], score_fields_with_quiz), 200
 api.add_resource(StudentScoresResource, '/student/scores')
+summary_fields = {
+    'total_users': fields.Integer,
+    'total_subjects': fields.Integer,
+    'total_quizzes': fields.Integer,
+    'subjects_data': fields.List(fields.Nested({
+        'name': fields.String,
+        'chapters': fields.Integer,
+        'quizzes': fields.Integer,
+        'total_questions': fields.Integer 
+    }))
+}
+
+class AdminSummaryResource(Resource):
+    @marshal_with(summary_fields)
+    @auth_required('token')
+    @roles_required('admin')
+    def get(self):
+        total_users = User.query.filter(~User.roles.any(Role.name == 'admin')).count()
+        print(f"Total non-admin users: {total_users}")
+        
+        total_subjects = Subject.query.count()
+        print(f"Total subjects: {total_subjects}")
+        
+        total_quizzes = Quiz.query.count()
+        print(f"Total quizzes: {total_quizzes}")
+
+        subjects_data = []
+        for subject in Subject.query.all():
+            chapters = Chapter.query.filter_by(subject_id=subject.id).all()
+            chapters_count = len(chapters)
+            quizzes_count = Quiz.query.join(Chapter).filter(Chapter.subject_id == subject.id).count()
+            total_questions = sum(quiz.num_of_ques for quiz in Quiz.query.join(Chapter).filter(Chapter.subject_id == subject.id))
+
+            subjects_data.append({
+                'name': subject.name,
+                'chapters': chapters_count,
+                'quizzes': quizzes_count,
+                'total_questions': total_questions
+            })
+
+        return {
+            'total_users': total_users,
+            'total_subjects': total_subjects,
+            'total_quizzes': total_quizzes,
+            'subjects_data': subjects_data
+        }
+
+api.add_resource(AdminSummaryResource, '/admin/summary')
+
+
+class StudentSummaryResource(Resource):
+    @auth_required('token')
+    def get(self):
+        user_id = current_user.id
+
+        # Aggregate scores per quiz
+        score_totals = db.session.query(
+            Quiz.name,
+            db.func.sum(Score.total_scored)
+        ).join(Score).filter(Score.user_id == user_id).group_by(Quiz.name).all()
+
+        # Count quizzes per chapter
+        quizzes_per_chapter = db.session.query(
+            Chapter.name,
+            db.func.count(Quiz.id)
+        ).join(Quiz).group_by(Chapter.name).all()
+
+        # Prepare data for the frontend
+        score_data = [{'quiz': name, 'total_score': total_score or 0} for name, total_score in score_totals]
+        chapter_data = [{'chapter': name, 'quiz_count': count} for name, count in quizzes_per_chapter]
+
+        return jsonify({
+            'scores_per_quiz': score_data,
+            'quizzes_per_chapter': chapter_data
+        })
+
+api.add_resource(StudentSummaryResource, '/student/summary')

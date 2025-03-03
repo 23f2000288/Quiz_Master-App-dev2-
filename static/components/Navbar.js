@@ -34,12 +34,12 @@ export default {
             to="/register"
           >Register</router-link>
         </li>
-        <li class="nav-item" v-if="is_login">
-          <a
-            class="nav-link"
-            href="#"
+        <li class="nav-item" v-if="is_login" >
+          <router-link
+            class="nav-link active"
             style="color: white; font-weight: bold; margin-right: 15px;"
-          >Summary</a>
+            to="/summary"
+          >Summary</router-link>
         </li>
         <li class="nav-item" v-if="role === 'stud'" >
           <router-link

@@ -1,17 +1,54 @@
 from celery import shared_task
-from flask import render_template
+from flask import render_template, current_app
 from datetime import datetime, timedelta
 from .models import db, Quiz, User, Score,Role
 import flask_excel as excel
 from .mail_service import send_message
+from sqlalchemy import func
+
+
+
 @shared_task(ignore_result=False)
 def create_resource_csv():
-    quiz_res= Quiz.query.with_entities(Quiz.name, Quiz.remarks).all()
+    quiz_res = Quiz.query.with_entities(
+        Quiz.id.label('Quiz id'),
+        Quiz.name.label('Quiz Name'),
+        Quiz.chapter_id.label('Quiz Chapter Id'),
+        Quiz.date_of_quiz.label('Quiz Date'),
+        Quiz.scores.label('Quiz scores'),
+        Quiz.remarks.label('Quiz Remarks')
+    ).all()
 
-    csv_output=excel.make_response_from_query_sets(quiz_res,["name", "remarks"],"csv")
-    filename="test.csv"
+    csv_output = excel.make_response_from_query_sets(
+        quiz_res,
+        ["Quiz id", "Quiz Name", "Quiz Chapter Id", "Quiz Date", "Quiz scores", "Quiz Remarks"],
+        "csv"
+    )
+    filename = "test.csv"
 
-    with open(filename, 'wb') as f :
+    with open(filename, 'wb') as f:
+        f.write(csv_output.data)
+
+    return filename
+@shared_task(ignore_result=False)
+def create_admin_resource_csv():
+    user_data = db.session.query(
+        User.id.label('User ID'),
+        User.fullname.label('User Name'),
+        func.count(Score.quiz_id).label('Quizzes Given'),
+        func.avg(Score.total_scored).label('Average Score')
+    ).outerjoin(Score, User.id == Score.user_id)\
+     .group_by(User.id)\
+     .all()
+
+    csv_output = excel.make_response_from_query_sets(
+        user_data,
+        ["User ID", "User Name", "Quizzes Given", "Average Score"],
+        "csv"
+    )
+    filename = "admin_user_quiz_data.csv"
+
+    with open(filename, 'wb') as f:
         f.write(csv_output.data)
 
     return filename
