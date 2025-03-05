@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import aliased
 from sqlalchemy import func
+from .instances import cache
 
 
 api = Api(prefix='/api')
@@ -35,17 +36,17 @@ class RegisterUser(Resource):
         data = request.get_json()
 
         try:
-            # Validate and process input data
+            
             dob = datetime.strptime(data['dob'], '%Y-%m-%d').date()
             fs_uniquifier = str(uuid4())
             hashed_password = hash_password(data['password'])
 
-            # Check if 'stud' role exists
+            
             role = Role.query.filter_by(name='stud').first()
             if not role:
                 return {"message": "Role 'stud' does not exist. Please create it first."}, 400
 
-            # Create new user with the role
+            
             user = User(
                 fullname=data['fullname'],
                 email=data['email'],
@@ -56,7 +57,7 @@ class RegisterUser(Resource):
                 active=True,
                 role_id=2,
             )
-            user.roles.append(role)  # Assign the 'stud' role
+            user.roles.append(role)  
 
             # Save to the database
             db.session.add(user)
@@ -70,6 +71,7 @@ class RegisterUser(Resource):
             return {"message": f"Invalid data: {str(e)}"}, 400
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 400
+
 
 
 class UserManagement(Resource):
@@ -118,6 +120,7 @@ std_subject_fields = {
 class StudentSubjectResource(Resource):
     @marshal_with(std_subject_fields)
     @auth_required('token')
+    @cache.cached(timeout=50)
     def get(self):
         """Fetch all subjects with their chapters for students."""
         try:
@@ -133,16 +136,16 @@ class SubjectResource(Resource):
     
     @marshal_with(subject_fields)
     @auth_required('token')
+    @cache.cached(timeout=50)
     @roles_required('admin')
     def get(self):
-        """Fetch all subjects."""
         subjects = Subject.query.all()
         return subjects
 
     @auth_required('token')
     @roles_required('admin')
     def post(self):
-        """Create a new subject."""
+        
         args = subject_parser.parse_args()
         try:
             subject = Subject(name=args['name'], description=args['description'])
@@ -155,7 +158,7 @@ class SubjectResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def delete(self, subject_id):
-        """Delete a subject."""
+        
         try:
             subject = Subject.query.get_or_404(subject_id)
             db.session.delete(subject)
@@ -184,6 +187,7 @@ chapter_parser = reqparse.RequestParser()
 chapter_parser.add_argument('name', type=str, required=True, help='Chapter name is required')
 chapter_parser.add_argument('description', type=str, required=True, help='Chapter description is required')
 chapter_parser.add_argument('subject_id', type=int, required=True, help='Subject ID is required')
+
 chapter_fields = {
     'id': fields.Integer,
     'name': fields.String,
@@ -191,6 +195,7 @@ chapter_fields = {
     
     'subject_id': fields.Integer,
 }
+
 # Chapter CRUD API
 class ChapterResource(Resource):
     @auth_required('token')
@@ -211,7 +216,7 @@ class ChapterResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def post(self):
-        """Create a new chapter."""
+        
         args = chapter_parser.parse_args()
         try:
             # Ensure subject_id is valid
@@ -231,7 +236,7 @@ class ChapterResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def delete(self, chapter_id):
-        """Delete a chapter."""
+        
         try:
             chapter = Chapter.query.get_or_404(chapter_id)
             db.session.delete(chapter)
@@ -243,7 +248,7 @@ class ChapterResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def put(self, chapter_id):
-        """Update a chapter."""
+        
         args = chapter_parser.parse_args()
         try:
             chapter = Chapter.query.get_or_404(chapter_id)
@@ -254,7 +259,8 @@ class ChapterResource(Resource):
             return {"message": "Chapter updated successfully"}, 200
         except Exception as e:
             return {"message": f"Failed to update chapter: {str(e)}"}, 500
-# Chapter Resource
+
+
 quiz_parser = reqparse.RequestParser()
 quiz_parser.add_argument('name', type=str, required=True, help='Quiz name is required')
 quiz_parser.add_argument('time_duration', type=str, required=True, help='Time duration (HH:MM) is required')
@@ -262,6 +268,7 @@ quiz_parser.add_argument('remarks', type=str, help='Remarks for the quiz')
 quiz_parser.add_argument('chapter_id', type=int, required=True, help='Chapter ID is required')
 quiz_parser.add_argument('date_of_quiz',type=str,required=True,help='date_of_quiz is required')
 quiz_parser.add_argument('num_of_ques',type=int,required=True,help='num_of_ques is required')
+
 quiz_fields = {
     'id': fields.Integer,
     'name': fields.String,
@@ -271,9 +278,10 @@ quiz_fields = {
     'date_of_quiz':fields.String,
     'num_of_ques':fields.Integer
 }
+
 class QuizResource(Resource):
-    
     @auth_required('token')
+    @cache.cached(timeout=50)
     @roles_required('admin')
     @marshal_with(quiz_fields)
     def get(self, chapter_id=None, quiz_id=None):
@@ -285,7 +293,7 @@ class QuizResource(Resource):
             elif chapter_id:
                 quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all()
                 print(f"Found {len(quizzes)} quizzes for chapter {chapter_id}")
-                return quizzes  # Return an empty list if no quizzes found
+                return quizzes 
             else:
                 quizzes = Quiz.query.all()
                 return quizzes
@@ -296,13 +304,11 @@ class QuizResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def post(self, chapter_id):
-        """Create a quiz for a specific chapter."""
+        
         args = quiz_parser.parse_args()
         try:
             Chapter.query.get_or_404(chapter_id)
-            """existing_quiz = Quiz.query.filter_by(chapter_id=chapter_id).first()
-            if existing_quiz:
-                return {"message": "A quiz already exists for this chapter."}, 400"""
+            
 
             quiz = Quiz(
                 name=args['name'],
@@ -323,8 +329,6 @@ class QuizResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def delete(self, quiz_id):
-        
-        
         if quiz_id is None:
             return {"message": "Quiz ID is required for deletion."}, 400
         
@@ -341,13 +345,13 @@ class QuizResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def put(self, quiz_id):
-        """Update a specific quiz."""
+        
         args = quiz_parser.parse_args()
         try:
             quiz = Quiz.query.get_or_404(quiz_id)
             quiz.name = args['name']
             
-            # Handle both "HH:MM" and "HH:MM:SS" formats
+           
             time_str = args['time_duration'].strip()
             if len(time_str.split(':')) == 2:
                 time_str += ":00"  # Append seconds if missing
@@ -370,6 +374,7 @@ question_parser.add_argument('question_statement', type=str, required=True, help
 question_parser.add_argument('question_title', type=str, required=True, help='Question title is required')
 question_parser.add_argument('options', type=dict, required=True, help='Options are required')
 question_parser.add_argument('correct_option', type=str, required=True, help='Correct option is required')
+
 question_fields = {
     'id': fields.Integer,
     'question_statement': fields.String,
@@ -419,7 +424,7 @@ class QuestionResource(Resource):
     @auth_required('token')
     @roles_required('admin')
     def delete(self, quiz_id, question_id):
-        print(f"Attempting to delete question with id={question_id} from quiz with id={quiz_id}")
+        
 
         question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first()
         if question is None:
@@ -453,7 +458,7 @@ class QuestionResource(Resource):
             print(f"Update error: {str(e)}")  # Detailed logging
             return {"message": f"Failed to update question: {str(e)}"}, 500
 
-# Registering Resources
+
 api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
 api.add_resource(
     ChapterResource, 
@@ -466,23 +471,9 @@ api.add_resource(QuizResource,
                  '/quizzes/<int:quiz_id>',
                  ) 
 api.add_resource(QuizResource, '/quizzes/<int:quiz_id>/delete', endpoint='quiz_delete')
-api.add_resource(QuizResource, 
-    '/quizzes/<int:quiz_id>/update', 
-    endpoint='quiz_update'
-)
-
-
-api.add_resource(QuestionResource, 
-        
-             '/quizzes/<int:quiz_id>/questions',
-                 '/quizzes/<int:quiz_id>/questions/<int:question_id>')
+api.add_resource(QuizResource,   '/quizzes/<int:quiz_id>/update',  endpoint='quiz_update')
+api.add_resource(QuestionResource,  '/quizzes/<int:quiz_id>/questions','/quizzes/<int:quiz_id>/questions/<int:question_id>')
 api.add_resource(RegisterUser,'/register_user')
-
-
-
-
-
-
 
 student_quiz_fields = {
     'id': fields.Integer,
@@ -556,23 +547,22 @@ class StudentQuizRetakeResource(Resource):
 
             current_user_id = current_user.id
 
-            # Find the existing score record
+           
             score = Score.query.filter_by(quiz_id=quiz_id, user_id=current_user_id).first()
 
             if score:
-                # Reset the is_completed status
+                
                 score.is_completed = False
-                db.session.commit()  # Assuming you have 'db' defined for SQLAlchemy
+                db.session.commit()  
 
                 return {'message': 'Quiz retake allowed', 'quiz_id': quiz_id}, 200
             else:
                 return {'message': 'No previous attempt found for this quiz'}, 400  # Or create a new Score entry if desired
 
         except Exception as e:
-            db.session.rollback()  # Rollback in case of errors
+            db.session.rollback() 
             return {'message': str(e)}, 500
 
-# Register the resource with the API
 api.add_resource(StudentQuizRetakeResource, '/student/quizzes/<int:quiz_id>/retake')
 
 
@@ -591,6 +581,7 @@ quiz_with_questions_fields = {
 class StudentQuizQuestionResource(Resource):
     @marshal_with(quiz_with_questions_fields)
     @auth_required('token')
+    @cache.cached(timeout=50)
     @roles_required('stud')
     def get(self, quiz_id):
         quiz = Quiz.query.options(
@@ -616,6 +607,7 @@ score_fields = {
 
 class StudentQuizSubmitResource(Resource):
     @auth_required('token')
+    @cache.cached(timeout=50)
     @roles_required('stud')
     def post(self, quiz_id):
         quiz = Quiz.query.get_or_404(quiz_id)
@@ -669,7 +661,7 @@ class StudentQuizSubmitResource(Resource):
             existing_score.total_scored = total_scored
             existing_score.is_completed = True
             existing_score.timestamp = db.func.current_timestamp()
-            score = existing_score  # Assign the existing_score to score variable
+            score = existing_score 
         else:
             score = Score(
                 quiz_id=quiz_id,
@@ -684,21 +676,17 @@ class StudentQuizSubmitResource(Resource):
 
 api.add_resource(StudentQuizSubmitResource, '/student/quiz/<int:quiz_id>/submit')
 
-# StudentQuizResultResource (NEW resource)
+
 class StudentQuizResultResource(Resource):
     @auth_required('token')
     @roles_required('stud')
     def get(self, quiz_id):
         quiz = Quiz.query.get_or_404(quiz_id)
         user_id = current_user.id
-
-        # Fetch the questions for the quiz
         questions = Question.query.filter_by(quiz_id=quiz_id).all()
-
-        # Fetch the user's score for this quiz
         user_score = Score.query.filter_by(quiz_id=quiz_id, user_id=user_id).first()
 
-        # Prepare the results
+       
         results = []
         for question in questions:
             # Fetch user's answer for the question
@@ -812,16 +800,17 @@ summary_fields = {
 class AdminSummaryResource(Resource):
     @marshal_with(summary_fields)
     @auth_required('token')
+    @cache.cached(timeout=50)
     @roles_required('admin')
     def get(self):
         total_users = User.query.filter(~User.roles.any(Role.name == 'admin')).count()
-        print(f"Total non-admin users: {total_users}")
+        
         
         total_subjects = Subject.query.count()
-        print(f"Total subjects: {total_subjects}")
+        
         
         total_quizzes = Quiz.query.count()
-        print(f"Total quizzes: {total_quizzes}")
+        
 
         subjects_data = []
         for subject in Subject.query.all():
@@ -849,6 +838,7 @@ api.add_resource(AdminSummaryResource, '/admin/summary')
 
 class StudentSummaryResource(Resource):
     @auth_required('token')
+    @cache.cached(timeout=50)
     def get(self):
         user_id = current_user.id
 

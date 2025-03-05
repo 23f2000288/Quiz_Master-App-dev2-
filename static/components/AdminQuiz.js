@@ -1,8 +1,8 @@
 
 export default {
   template: `
-   <div class="container-fluid d-flex flex-column py-5" style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); height: 100vh;"> 
-      <div class="row d-flex justify-content-center align-items-start h-100">
+   <div class="container-fluid d-flex flex-column py-5" style="background: linear-gradient(to bottom, rgb(255, 170, 29), rgb(255, 170, 29)); "> 
+      <div class="row d-flex justify-content-center align-items-start ">
         <div class="col col-xl-12">
           <div class="card" style="border-radius: 1rem; min-height: 80vh;">
             <div class="card-body d-flex flex-column">

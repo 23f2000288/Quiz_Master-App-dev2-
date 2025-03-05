@@ -20,13 +20,13 @@ def admin():
 @app.post('/user-login')
 def user_login():
     data = request.get_json()
-    print(data)
+    
     email = data.get('email')
     if not email:
         return jsonify({"message": "Email not provided"}), 400
 
     user = datastore.find_user(email=email)
-    print(user)
+    
 
     if not user:
         return jsonify({"message": "User Not Found"}), 404
