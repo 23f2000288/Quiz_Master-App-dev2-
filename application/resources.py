@@ -77,10 +77,10 @@ class RegisterUser(Resource):
 class UserManagement(Resource):
     @marshal_with(user_fields)
     def get(self):
-        # Get the 'admin' role
+        
         admin_role = Role.query.filter_by(name='admin').first()
         
-        # Query all users except those with the admin role
+       
         users = User.query.filter(~User.roles.contains(admin_role)).all()
         return users, 200
 
@@ -120,9 +120,9 @@ std_subject_fields = {
 class StudentSubjectResource(Resource):
     @marshal_with(std_subject_fields)
     @auth_required('token')
-    @cache.cached(timeout=50)
+    
     def get(self):
-        """Fetch all subjects with their chapters for students."""
+        
         try:
             subjects = Subject.query.all()
             return subjects
@@ -136,14 +136,14 @@ class SubjectResource(Resource):
     
     @marshal_with(subject_fields)
     @auth_required('token')
-    @cache.cached(timeout=50)
+    
     @roles_required('admin')
     def get(self):
         subjects = Subject.query.all()
         return subjects
 
-    @auth_required('token')
-    @roles_required('admin')
+    @auth_required('token') #Rbac
+    @roles_required('admin') #Rbac
     def post(self):
         
         args = subject_parser.parse_args()
@@ -202,7 +202,7 @@ class ChapterResource(Resource):
     @roles_required('admin')
     @marshal_with(chapter_fields)
     def get(self):
-        """Fetch all chapters or filter by subject ID."""
+        
         subject_id = request.args.get('subject_id', type=int)
         try:
             if subject_id:
@@ -219,7 +219,7 @@ class ChapterResource(Resource):
         
         args = chapter_parser.parse_args()
         try:
-            # Ensure subject_id is valid
+           
             subject = Subject.query.get_or_404(args['subject_id'])
             chapter = Chapter(
                 name=args['name'],
@@ -281,24 +281,24 @@ quiz_fields = {
 
 class QuizResource(Resource):
     @auth_required('token')
-    @cache.cached(timeout=50)
+    
     @roles_required('admin')
     @marshal_with(quiz_fields)
     def get(self, chapter_id=None, quiz_id=None):
-        print(f"Received request for quizzes. chapter_id: {chapter_id}, quiz_id: {quiz_id}")
+       
         try:
             if quiz_id:
                 quiz = Quiz.query.get_or_404(quiz_id)
                 return quiz
             elif chapter_id:
                 quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all()
-                print(f"Found {len(quizzes)} quizzes for chapter {chapter_id}")
+               
                 return quizzes 
             else:
                 quizzes = Quiz.query.all()
                 return quizzes
         except Exception as e:
-            print(f"Error in GET request: {str(e)}")
+            
             return {"message": f"Failed to fetch quizzes: {str(e)}"}, 500
     
     @auth_required('token')
@@ -441,7 +441,7 @@ class QuestionResource(Resource):
         try:
             question = Question.query.filter_by(quiz_id=quiz_id, id=question_id).first_or_404()
             
-            # Add validation for correct option
+            
             if args['correct_option'] not in [str(v) for v in args['options'].values()]:
                 return {"message": "Correct option must match one of the option values"}, 400
 
@@ -455,16 +455,12 @@ class QuestionResource(Resource):
             return question, 200
         except Exception as e:
             db.session.rollback()
-            print(f"Update error: {str(e)}")  # Detailed logging
+           
             return {"message": f"Failed to update question: {str(e)}"}, 500
 
 
 api.add_resource(SubjectResource, '/subjects', '/subjects/<int:subject_id>')
-api.add_resource(
-    ChapterResource, 
-    '/chapters',                      # Fetch all chapters or create a new chapter
-    '/chapters/<int:chapter_id>'      # Update or delete a specific chapter
-)
+api.add_resource( ChapterResource, '/chapters', '/chapters/<int:chapter_id>')                  # Fetch all chapters or create a new chapter'/chapters/<int:chapter_id>'      # Update or delete a specific chapter)
 
 api.add_resource(QuizResource, 
                  '/quizzes/<int:chapter_id>',  # For GET requests (fetching quizzes for a chapter)
@@ -496,7 +492,7 @@ class StudentQuizResource(Resource):
     @auth_required('token')
     @roles_required('stud')
     def get(self):
-        """Get all quizzes for student with status"""
+        
         current_user_id = current_user.id
         today = date.today()
 
@@ -539,7 +535,7 @@ class StudentQuizRetakeResource(Resource):
     @auth_required('token')
     @roles_required('stud')
     def post(self, quiz_id):
-        """Allows a student to retake a quiz by resetting is_completed."""
+       
         try:
             quiz = Quiz.query.get(quiz_id)
             if not quiz:
@@ -581,7 +577,7 @@ quiz_with_questions_fields = {
 class StudentQuizQuestionResource(Resource):
     @marshal_with(quiz_with_questions_fields)
     @auth_required('token')
-    @cache.cached(timeout=50)
+    
     @roles_required('stud')
     def get(self, quiz_id):
         quiz = Quiz.query.options(
@@ -603,79 +599,115 @@ score_fields = {
     'timestamp': fields.DateTime,
     'is_completed': fields.Boolean
 }
-
-
 class StudentQuizSubmitResource(Resource):
     @auth_required('token')
-    @cache.cached(timeout=50)
     @roles_required('stud')
     def post(self, quiz_id):
+       
         quiz = Quiz.query.get_or_404(quiz_id)
         user_id = current_user.id
 
-        # Check existing submission
+        # Check if the user has already submitted this quiz
         existing_score = Score.query.filter_by(
             quiz_id=quiz_id,
             user_id=user_id
         ).first()
-
         if existing_score and existing_score.is_completed:
             abort(400, description="Quiz already submitted")
 
-        # Validate request format
+        # Validate that the request is JSON
         if not request.is_json:
             abort(415, description="Request must be JSON")
 
+       
         answers = request.get_json().get('answers', {})
+        if not isinstance(answers, dict):
+            abort(400, description="Invalid format for answers. Must be a dictionary.")
 
-        # Calculate score
+       
+
+       
+        questions = Question.query.filter_by(quiz_id=quiz_id).order_by(Question.id).all()
+        question_map = {str(i+1): q.id for i, q in enumerate(questions)}
+       
         total_scored = 0
-        questions = Question.query.filter_by(quiz_id=quiz_id).all()
 
-        for question in questions:
-            qid_str = str(question.id)
-            submitted_answer = answers.get(qid_str)
+        for q_num, q_id in question_map.items():
+            submitted_answer = answers.get(q_num) 
+            
 
-            # Store user's answer
-            user_answer = UserAnswer.query.filter_by(user_id=user_id, quiz_id=quiz_id, question_id=question.id).first()
+            user_answer = UserAnswer.query.filter_by(
+                user_id=user_id,
+                quiz_id=quiz_id,
+                question_id=q_id
+            ).first()
             if not user_answer:
-                user_answer = UserAnswer(user_id=user_id, quiz_id=quiz_id, question_id=question.id)
+               
+                user_answer = UserAnswer(
+                    user_id=user_id,
+                    quiz_id=quiz_id,
+                    question_id=q_id
+                )
+            
+               
 
             user_answer.selected_option = submitted_answer
             db.session.add(user_answer)
 
             if submitted_answer:
+                question = Question.query.get(q_id)
                 try:
-                    correct = str(question.correct_option).strip().lower()
-                    submitted = str(submitted_answer).strip().lower()
-
-                    print(f"Q{question.id}: Comparing {correct} vs {submitted}")
-
-                    if submitted == correct:
+                    correct_option = str(question.correct_option).strip().lower()
+                    submitted_option = str(submitted_answer).strip().lower()
+                   
+                    if submitted_option == correct_option:
                         total_scored += 1
                 except Exception as e:
-                    print(f"Error processing Q{question.id}: {str(e)}")
+                    print(f"Error processing question {q_id}: {str(e)}")
+            else:
+                print(f"No answer submitted for question {q_id}")
 
-        # Database update
-        if existing_score:
-            existing_score.total_scored = total_scored
-            existing_score.is_completed = True
-            existing_score.timestamp = db.func.current_timestamp()
-            score = existing_score 
-        else:
-            score = Score(
-                quiz_id=quiz_id,
-                user_id=user_id,
-                total_scored=total_scored,
-                is_completed=True
-            )
-            db.session.add(score)
+       
+        try:
+            db.session.flush()  
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+           
+            abort(500, description="An error occurred while saving your answers")
 
-        db.session.commit()
+       
+        try:
+            if existing_score:
+                
+                existing_score.total_scored = total_scored
+                existing_score.is_completed = True
+                existing_score.timestamp = db.func.current_timestamp()
+                score = existing_score
+            else:
+                #Create new score entry
+                score = Score(
+                    quiz_id=quiz_id,
+                    user_id=user_id,
+                    total_scored=total_scored,
+                    is_completed=True
+                )
+                db.session.add(score)
+
+            
+            db.session.commit()
+           
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error saving score: {str(e)}")
+            abort(500, description="An error occurred while saving your score")
+
+        
         return marshal(score, score_fields), 201
 
-api.add_resource(StudentQuizSubmitResource, '/student/quiz/<int:quiz_id>/submit')
 
+api.add_resource(StudentQuizSubmitResource, '/student/quiz/<int:quiz_id>/submit')
 
 class StudentQuizResultResource(Resource):
     @auth_required('token')
@@ -689,13 +721,13 @@ class StudentQuizResultResource(Resource):
        
         results = []
         for question in questions:
-            # Fetch user's answer for the question
+           
             user_answer_obj = UserAnswer.query.filter_by(quiz_id=quiz_id, user_id=user_id, question_id=question.id).first()
             user_answer = user_answer_obj.selected_option if user_answer_obj else None
 
             is_correct = False
             if user_score:
-                # Determine if the answer was correct by comparing user answer with correct option
+               
                 is_correct = (str(user_answer).strip().lower() == str(question.correct_option).strip().lower()) # Compare user_answer to correct_option
             else:
                 is_correct = False
@@ -720,7 +752,7 @@ class StudentQuizCompleteResource(Resource):
         quiz = Quiz.query.get_or_404(quiz_id)
         user_id = current_user.id
 
-        # Check existing submission
+        
         existing_score = Score.query.filter_by(
             quiz_id=quiz_id,
             user_id=user_id
@@ -729,7 +761,7 @@ class StudentQuizCompleteResource(Resource):
         if existing_score and existing_score.is_completed:
             return {"message": "Quiz already completed", "status": "already_completed"}, 200
 
-        # Mark as completed with zero score
+        
         if existing_score:
             existing_score.total_scored = 0
             existing_score.is_completed = True

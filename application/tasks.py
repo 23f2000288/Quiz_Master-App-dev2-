@@ -5,53 +5,96 @@ from .models import db, Quiz, User, Score,Role
 import flask_excel as excel
 from .mail_service import send_message
 from sqlalchemy import func
+from io import BytesIO
+
 
 
 
 @shared_task(ignore_result=False)
-def create_resource_csv():
-    quiz_res = Quiz.query.with_entities(
-        Quiz.id.label('Quiz id'),
-        Quiz.name.label('Quiz Name'),
-        Quiz.chapter_id.label('Quiz Chapter Id'),
-        Quiz.date_of_quiz.label('Quiz Date'),
-        Quiz.scores.label('Quiz scores'),
-        Quiz.remarks.label('Quiz Remarks')
-    ).all()
+def create_resource_csv(user_id):
+    
+    try:
+        
+        quiz_res = db.session.query(
+            Quiz.id.label('Quiz ID'),
+            Quiz.name.label('Quiz Name'),
+            Quiz.remarks.label('Quiz Remarks'),
+            Score.total_scored.label('Quiz Score')
+        ).join(Score, Quiz.id == Score.quiz_id)\
+         .filter(Score.user_id == user_id)\
+         .order_by(Quiz.date_of_quiz.desc())\
+         .all()
 
-    csv_output = excel.make_response_from_query_sets(
-        quiz_res,
-        ["Quiz id", "Quiz Name", "Quiz Chapter Id", "Quiz Date", "Quiz scores", "Quiz Remarks"],
-        "csv"
-    )
-    filename = "test.csv"
+        # Check if there are results for the user
+        if not quiz_res:
+            current_app.logger.info(f"No quiz data found for user with ID {user_id}")
+            return None
 
-    with open(filename, 'wb') as f:
-        f.write(csv_output.data)
+        
+        csv_data = [
+            {
+                "Quiz ID": row[0],
+                "Quiz Name": row[1],
+                "Quiz Remarks": row[2] or "N/A",
+                "Quiz Score": row[3]
+            }
+            for row in quiz_res
+        ]
 
-    return filename
+        
+        csv_output = excel.make_response_from_records(
+            csv_data,
+            column_names=["Quiz ID", "Quiz Name", "Quiz Remarks", "Quiz Score"],
+            file_type="csv"
+        )
+
+       
+        return csv_output.data.decode('utf-8')
+
+    except Exception as e:
+        current_app.logger.error(f"Error generating CSV for user {user_id}: {str(e)}")
+        raise
+
+
 @shared_task(ignore_result=False)
 def create_admin_resource_csv():
+    
     user_data = db.session.query(
         User.id.label('User ID'),
         User.fullname.label('User Name'),
         func.count(Score.quiz_id).label('Quizzes Given'),
-        func.avg(Score.total_scored).label('Average Score')
+        func.avg(
+            (Score.total_scored * 100.0 / Quiz.num_of_ques)
+        ).label('Average Score Percentage')
     ).outerjoin(Score, User.id == Score.user_id)\
+     .outerjoin(Quiz, Score.quiz_id == Quiz.id)\
      .group_by(User.id)\
      .all()
 
-    csv_output = excel.make_response_from_query_sets(
-        user_data,
-        ["User ID", "User Name", "Quizzes Given", "Average Score"],
-        "csv"
-    )
-    filename = "admin_user_quiz_data.csv"
+    
+    headers = ["User ID", "User Name", "Quizzes Given", "Average Score Percentage"]
+    formatted_data = [
+        (row[0], row[1], row[2], f"{row[3]:.2f}%" if row[3] is not None else "N/A")
+        for row in user_data
+    ]
 
+    
+    csv_output = excel.make_response_from_array(
+        [headers] + formatted_data,  
+        "csv",
+        file_name="admin_user_quiz_data.csv"
+    )
+
+    # Save the file
+    filename = "admin_user_quiz_data.csv"
     with open(filename, 'wb') as f:
         f.write(csv_output.data)
 
     return filename
+
+
+
+
 
 @shared_task(ignore_result=True)
 def send_daily_reminders():
